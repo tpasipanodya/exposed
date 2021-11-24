@@ -2,6 +2,7 @@
 
 package org.jetbrains.exposed.sql.kotlin.datetime
 
+import junit.framework.Assert.assertTrue
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
@@ -1253,13 +1254,13 @@ fun Misc.checkRowDates(
     dr: Duration,
     drn: Duration? = null
 ) {
-    (ChronoUnit.MILLIS.between(dt.toJavaLocalDateTime(), row[this.dt].toJavaLocalDateTime()) < 1000)
-        .let { println("aye! $it") }
+
     assertEquals(d, row[this.d])
     assertEquals(dn, row[this.dn])
 //    assertEquals(t, row[this.t])
 //    assertEquals(tn, row[this.tn])
-    assertEquals(dt, row[this.dt])
+    assertTrue(ChronoUnit.MILLIS.between(dt.toJavaLocalDateTime(), row[this.dt].toJavaLocalDateTime()) < 1000)
+//    assertEquals(dt, row[this.dt])
     assertEquals(dtn, row[this.dtn])
     assertEquals(ts, row[this.ts])
     assertEquals(tsn, row[this.tsn])
