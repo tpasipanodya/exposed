@@ -6,6 +6,7 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.toJavaLocalDateTime
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
 import org.jetbrains.exposed.sql.tests.TestDB
@@ -14,6 +15,7 @@ import org.jetbrains.exposed.sql.tests.shared.checkInsert
 import org.jetbrains.exposed.sql.tests.shared.checkRow
 import org.junit.Test
 import java.math.BigDecimal
+import java.time.temporal.ChronoUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.time.Duration
@@ -1251,6 +1253,8 @@ fun Misc.checkRowDates(
     dr: Duration,
     drn: Duration? = null
 ) {
+    (ChronoUnit.MILLIS.between(dt.toJavaLocalDateTime(), row[this.dt].toJavaLocalDateTime()) < 1000)
+        .let { println("aye! $it") }
     assertEquals(d, row[this.d])
     assertEquals(dn, row[this.dn])
 //    assertEquals(t, row[this.t])
