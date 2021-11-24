@@ -1,12 +1,10 @@
-name: Build
+name: "Build"
 on: [push]
 jobs:
   Explore-GitHub-Actions:
     runs-on: ubuntu-latest
     steps:
-      - name: Tests
-        uses: actions/checkout@v2
-        run: |
-          ls -lart ${{ github.workspace }}
-          pwd
-          ls -lart
+        - uses: actions/checkout@v2
+        - run: ls -lart ${{ github.workspace }}
+        - run: pwd
+        - run: ls -lart
