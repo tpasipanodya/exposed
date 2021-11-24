@@ -7,7 +7,7 @@ jobs:
         - uses: actions/checkout@v2
         - uses: actions/setup-java@v1
           with:
-            java-version: 17
+            java-version: 16
         - run: ls -lart ${{ github.workspace }}
         - run: ./scripts/setup.sh
         - uses: gradle/gradle-build-action@v2
