@@ -10,6 +10,3 @@ jobs:
           ls -lart ${{ github.workspace }}
           pwd
           ls -lart
-      - name: List files in the repository
-        run: |
-          ls ${{ github.workspace }}
