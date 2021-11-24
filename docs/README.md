@@ -33,7 +33,7 @@ switch between them with very little or no changes in your code.
 Exposed is currently available for **maven/gradle builds** at [Maven Central](https://search.maven.org/search?q=g:org.jetbrains.exposed) (read [Getting started](https://github.com/JetBrains/Exposed/wiki/Getting-Started#download)).
 
 * [Wiki](https://github.com/JetBrains/Exposed/wiki) with examples and docs. 
-* [Roadmap](ROADMAP.md) to see what's coming next.
+* [Roadmap](https://github.com/JetBrains/Exposed/blob/master/docs/ROADMAP.md) to see what's coming next.
 * [Change log](ChangeLog.md) of improvements and bug fixes.
 
 If you have any questions feel free to ask at our [#exposed](https://kotlinlang.slack.com/archives/C0CG7E0A1) channel on [kotlinlang.slack.com](https://kotlinlang.slack.com).
@@ -53,6 +53,11 @@ object Users : Table() {
     val cityId = (integer("city_id") references Cities.id).nullable() // Column<Int?>
 
     override val primaryKey = PrimaryKey(id, name = "PK_User_ID") // name is optional here
+
+    // To set a default scope that will be applied to all select and update statements:
+    // override val defaultScope = {
+    //  Op.build { cityId eq munichId }
+    //}
 }
 
 object Cities : Table() {
