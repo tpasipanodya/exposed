@@ -8,9 +8,11 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.javatime.*
 import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
 import org.jetbrains.exposed.sql.tests.TestDB
+import org.junit.Ignore
 import org.junit.Test
 import java.time.*
 
+@Ignore
 class SQLServerDefaultsTest : DatabaseTestsBase() {
 
     @Test
