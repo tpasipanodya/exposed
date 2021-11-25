@@ -6,16 +6,8 @@
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.jetbrains.exposed/exposed-core/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.jetbrains.exposed/exposed-core)
 [![GitHub License](https://img.shields.io/badge/license-Apache%20License%202.0-blue.svg?style=flat)](https://www.apache.org/licenses/LICENSE-2.0)
 
-Welcome to **Exposed**, an ORM framework for 
-[Kotlin](https://github.com/JetBrains/kotlin).
-Exposed offers two levels of database access: typesafe SQL
-wrapping DSL and lightweight data access objects.
-Our official mascot is Cuttlefish, which is best known for its
-outstanding mimicry abilities letting it blend seamlessly in
-any environment. Just like our mascot, Exposed can mimic a variety
-of database engines and help you build database applications
-without hard dependencies on any specific database engine, and
-switch between them with very little or no changes in your code.
+Welcome to **Exposed**; a fork of the [Kotlin ORM framework](https://github.com/JetBrains/Exposed)
+augmented with default scopes. Default scopes can be useful for implementing multi-tenancy & soft deletes.
 
 ## Supported Databases
 
