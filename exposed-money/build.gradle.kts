@@ -10,6 +10,7 @@ repositories {
     mavenCentral()
 }
 
+
 val dialect: String by project
 
 dependencies {

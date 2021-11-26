@@ -51,3 +51,4 @@ tasks.withType(Test::class.java) {
 }
 
 setupDialectTest(dialect)
+

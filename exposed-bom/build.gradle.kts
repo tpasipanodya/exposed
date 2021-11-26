@@ -1,4 +1,4 @@
-import org.jetbrains.exposed.gradle.configureMavenCentralMetadata
+import org.jetbrains.exposed.gradle.setPomMetadata
 import org.jetbrains.exposed.gradle.signPublicationIfKeyPresent
 
 plugins {
@@ -35,7 +35,7 @@ publishing {
         create<MavenPublication>("bom") {
             from(components.getByName("javaPlatform"))
             pom {
-                configureMavenCentralMetadata(project)
+                setPomMetadata(project)
             }
             signPublicationIfKeyPresent(project)
         }

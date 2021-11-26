@@ -10,3 +10,4 @@ repositories {
 dependencies {
     api(project(":exposed-core"))
 }
+
