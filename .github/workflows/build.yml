@@ -1,5 +1,5 @@
 name: "Build"
-on: [push]
+on: [pull_request]
 jobs:
   Explore-GitHub-Actions:
     runs-on: ubuntu-latest
@@ -13,4 +13,4 @@ jobs:
         - uses: gradle/gradle-build-action@v2
           with:
             gradle-version: 7.3
-            arguments: clean test build
+            arguments: clean test build artifactoryPublish
