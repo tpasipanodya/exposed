@@ -4,7 +4,7 @@ jobs:
   Explore-GitHub-Actions:
     runs-on: ubuntu-latest
     steps:
-        - env:
+        env:
           ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}
         - uses: actions/checkout@v2
         - uses: actions/setup-java@v1
