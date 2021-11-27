@@ -11,14 +11,15 @@ jobs:
         with:
           java-version: 17
       - name: Start Databases
-        env:
-          ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}
         run: |
           ls -lart ${{ github.workspace }}
           echo -e "$ARTIFACTORY_USER\n\n\n"
           ./scripts/setup.sh
       - name: Build
         uses: gradle/gradle-build-action@v2
+        env:
+          ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}
+          ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
         with:
           gradle-version: 7.3
           arguments: clean test build artifactoryPublish
