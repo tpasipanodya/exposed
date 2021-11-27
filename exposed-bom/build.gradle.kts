@@ -7,7 +7,7 @@ plugins {
     signing
 }
 
-group = "io.taff"
+group = "io.taff.exposed"
 
 // This is needed as the api dependency constraints cause dependencies
 javaPlatform.allowDependencies()
