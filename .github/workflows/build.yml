@@ -4,18 +4,21 @@ jobs:
   Explore-GitHub-Actions:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Build
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup Java
         uses: actions/setup-java@v1
-        env:
-          ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}
         with:
           java-version: 17
+      - name: Start Databases
+        env:
+          ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}
         run: |
           ls -lart ${{ github.workspace }}
           echo -e "$ARTIFACTORY_USER\n\n\n"
           ./scripts/setup.sh
-      - uses: gradle/gradle-build-action@v2
+      - name: Build
+        uses: gradle/gradle-build-action@v2
         with:
           gradle-version: 7.3
           arguments: clean test build artifactoryPublish
