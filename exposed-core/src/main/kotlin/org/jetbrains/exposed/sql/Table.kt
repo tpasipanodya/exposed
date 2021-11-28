@@ -28,7 +28,7 @@ typealias JoinCondition = Pair<Expression<*>, Expression<*>>
 /**
  * Represents a set of expressions, contained in the given column set.
  */
-interface FieldSet : DefaultScopeAware {
+interface FieldSet : DefaultScopeMaterializer {
     /** Return the column set that contains this field set. */
     val source: ColumnSet
 
