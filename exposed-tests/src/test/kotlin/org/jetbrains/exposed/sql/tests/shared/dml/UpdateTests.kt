@@ -32,14 +32,11 @@ class UpdateTests : DatabaseTestsBase() {
             val name = varchar("name", 50)
             override val defaultScope = { Op.build { name like "%ergey" } }
         }
-        val unscopedScopedTbl = object  : LongIdTable("scoped_batch_updates") {
-            val name = varchar("name", 50)
-        }
         val initialNames = listOf("Alex", "Andrey", "Eugene", "Sergey", "Something")
-        withTables(tbl, unscopedScopedTbl) {
+        withTables(tbl, scopedTbl) {
             initialNames.forEach { name ->
                 tbl.insert { it[tbl.name] = name }
-                unscopedScopedTbl.insert { it[unscopedScopedTbl.name] = name }
+                scopedTbl.insert { it[scopedTbl.name] = name }
             }
             val records = {
                 tbl.selectAll()
@@ -49,7 +46,6 @@ class UpdateTests : DatabaseTestsBase() {
             assertEqualLists(initialNames.sorted(),
                              records().map { it.second }.sorted())
 
-            val txn = this
             tbl.batchUpdate(records(),
                             id = { it.first },
                             body =  { this[tbl.name] = it.second.lowercase() })
@@ -58,9 +54,9 @@ class UpdateTests : DatabaseTestsBase() {
                              records().map { it.second })
 
             val unscopedScopedRecords = {
-                unscopedScopedTbl
+                scopedTbl.stripDefaultScope()
                     .selectAll()
-                    .map { it[unscopedScopedTbl.id] to it[unscopedScopedTbl.name] }
+                    .map { it[scopedTbl.id] to it[scopedTbl.name] }
             }
             assertEqualLists(initialNames, unscopedScopedRecords().map { it.second })
 
@@ -68,6 +64,13 @@ class UpdateTests : DatabaseTestsBase() {
                                   id = { it.first },
                                   body = { this[scopedTbl.name] = it.second.lowercase() })
             assertEqualLists(initialNames.map { if (it == "Sergey") it.lowercase() else it }.sorted(),
+                             unscopedScopedRecords().map { it.second }.sorted())
+
+            scopedTbl.stripDefaultScope()
+                .batchUpdate(unscopedScopedRecords(),
+                             id = { it.first },
+                             body = { this[scopedTbl.name] = it.second.lowercase() })
+            assertEqualLists(initialNames.map { it.lowercase() }.sorted(),
                              unscopedScopedRecords().map { it.second }.sorted())
         }
     }

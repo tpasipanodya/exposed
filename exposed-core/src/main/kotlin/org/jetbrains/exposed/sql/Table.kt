@@ -348,11 +348,9 @@ open class Table(name: String = "") : ColumnSet(), DdlAware {
     open val defaultScope: (() -> Op<Boolean>)? = null
 
     /**
-     * For temporarily removing this table's default scope in a thread-safe manner.
-     *
      * Returns a new instance of a table that will ignore the default scope when generating/running queries.
      */
-    fun stripDefaultScope() = TableWithDefaultScopeStriped(this)
+    open fun stripDefaultScope() = TableWithDefaultScopeStriped(this)
 
     internal val tableNameWithoutScheme: String get() = tableName.substringAfter(".")
 
@@ -1130,7 +1128,7 @@ fun ColumnSet.targetTables(): List<Table> = when (this) {
 }
 
 /** A table with a default scope whose default scope has been temporarily striped */
-class TableWithDefaultScopeStriped(var actualTable: Table) : Table(name = actualTable.tableName), FieldSet by actualTable {
+open class TableWithDefaultScopeStriped(val actualTable: Table) : Table(name = actualTable.tableName), FieldSet by actualTable {
 
     override val columns: List<Column<*>> = actualTable.columns
 
