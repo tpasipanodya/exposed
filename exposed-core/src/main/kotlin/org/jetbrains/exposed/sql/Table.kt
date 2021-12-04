@@ -1134,23 +1134,5 @@ open class TableWithDefaultScopeStriped(val actualTable: Table) : Table(name = a
 
     override fun describe(s: Transaction, queryBuilder: QueryBuilder) = actualTable.describe(s, queryBuilder)
 
-    override fun join(
-        otherTable: ColumnSet,
-        joinType: JoinType,
-        onColumn: Expression<*>?,
-        otherColumn: Expression<*>?,
-        additionalConstraint: (SqlExpressionBuilder.() -> Op<Boolean>)?
-    ) = actualTable.join(otherTable, joinType, onColumn, otherColumn, additionalConstraint)
-
-    override fun innerJoin(otherTable: ColumnSet) = actualTable.innerJoin(otherTable)
-
-    override fun leftJoin(otherTable: ColumnSet) = actualTable.leftJoin(otherTable)
-
-    override fun rightJoin(otherTable: ColumnSet) = actualTable.rightJoin(otherTable)
-
-    override fun fullJoin(otherTable: ColumnSet) = actualTable.fullJoin(otherTable)
-
-    override fun crossJoin(otherTable: ColumnSet) = actualTable.crossJoin(otherTable)
-
     override fun materializeDefaultScope() : Op<Boolean>? = null
 }
