@@ -5,6 +5,7 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
 import org.jetbrains.exposed.sql.tests.TestDB
 import org.jetbrains.exposed.sql.tests.currentDialectTest
+import org.jetbrains.exposed.sql.tests.shared.assertEqualLists
 import org.jetbrains.exposed.sql.tests.shared.expectException
 import org.jetbrains.exposed.sql.vendors.H2Dialect
 import org.jetbrains.exposed.sql.vendors.SQLiteDialect
@@ -52,12 +53,22 @@ class DeleteTests : DatabaseTestsBase() {
                 .let { sergeyId ->
                     assertEquals("sergey", sergeyId)
 
+                    scopedUsers.deleteWhere { scopedUsers.name eq "Alex" }
+                    val alexExists = exists(scopedUsers.stripDefaultScope().select { scopedUsers.name eq "Alex" })
+                    assertEqualLists(scopedUsers.slice(alexExists).selectAll().take(1).map { it[alexExists] },
+                                 listOf(true))
+
                     scopedUsers.deleteWhere { scopedUsers.name like "%er%" }
                     scopedUsers.slice(scopedUsers.id)
                         .select { scopedUsers.name.like("%Sergey") }
                         .any().let { sergeyExists -> assertEquals(false, sergeyExists) }
 
                     assertEquals(4, scopedUsers.stripDefaultScope().selectAll().count())
+
+                    scopedUsers.stripDefaultScope().deleteWhere { scopedUsers.name eq "Alex" }
+                    assertEqualLists(scopedUsers.slice(alexExists).selectAll().take(1).map { it[alexExists] },
+                                 listOf(false))
+                    assertEquals(3, scopedUsers.stripDefaultScope().selectAll().count())
                 }
         }
     }
