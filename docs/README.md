@@ -27,9 +27,6 @@ The latest release version is `0.2.1` and is available on JFrog at `https://tmpa
 ## Examples
 
 ```kotlin
-import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.transactions.transaction
-
 CurrentUserId = ThreadLocal<Long>()
 
 object users : LongIdTable() {
@@ -40,7 +37,7 @@ object posts : LongIdTable() {
     val text = text("text")
     val userId = integer("user_id") references Users.id
 
-     override val defaultScope = { Op.build { userId eq CurrentUserId.get() } }
+    override val defaultScope = { Op.build { userId eq CurrentUserId.get() } }
 }
 
 fun main() {
@@ -48,19 +45,13 @@ fun main() {
     transaction {
         SchemaUtils.create(users, posts)
 
-        val user1Id = users.insert {
-            it[name] = "User 1"
-        }[users.id]
-
-        val user2Id = users.insert {
-            it[name] = "User 2"
-        }[users.id]
+        val user1Id = users.insert { it[name] = "User 1" }[users.id]
+        val user2Id = users.insert { it[name] = "User 2" }[users.id]
 
         posts.insert {
             it[userId] = user1Id
             it[text] = "foo bar"
         }
-        
         posts.insert {
             it[user2Id] = user1Id
             it[text] = "lorem ipsum"
