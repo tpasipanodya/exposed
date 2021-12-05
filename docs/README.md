@@ -69,8 +69,8 @@ fun main() {
         // true
         retrievedText == "lorem ipsum"
 
-        // Both posts have Ids but becuse of the default scope, only user 2's
-        // post is updated
+        // Both posts have Ids but because of the default scope,
+        // only user 2's post is updated
         val newText =  "Let's get it started in here"
         posts.update({ id.isNotNull() }) {
             it[text] = newText
@@ -81,7 +81,10 @@ fun main() {
             .selectAll().map { it[posts.userId] to it[posts.text] }
         
         // true
-        listOf(user1Id to "foo bar", user2Id to newText) == allTexts
+        listOf(
+            user1Id to "foo bar", 
+            user2Id to newText
+        ) == allTexts
         
     }
 }
