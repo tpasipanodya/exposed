@@ -1,6 +1,5 @@
 <img src="./logo.png" alt="Exposed" width="315" />
 
-[![Jfrog](https://maven-badges.herokuapp.com/maven-central/org.jetbrains.exposed/exposed-core/badge.svg)](https://tmpasipanodya.jfrog.io/ui/packages/gav:%2F%2Fio.taff.exposed:exposed-core)
 [![GitHub License](https://img.shields.io/badge/license-Apache%20License%202.0-blue.svg?style=flat)](https://www.apache.org/licenses/LICENSE-2.0)
 
 Welcome to **Exposed**; a fork of the [Kotlin ORM framework](https://github.com/JetBrains/Exposed).
