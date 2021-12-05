@@ -26,8 +26,6 @@ The latest release version is `0.2.1` and is available on JFrog at `https://tmpa
 
 ## Examples
 
-### Default Scopes
-
 ```kotlin
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -98,9 +96,8 @@ fun main() {
 }
 ```
 Default scopes are applied to all DB operations including deletes, joins, unions, etc.
-
-### Other Examples
-For additional examples, take a look at [the official Exposed wiki](https://github.com/JetBrains/Exposed/wiki).
+For additional examples, take a look at 
+[the official Exposed wiki](https://github.com/JetBrains/Exposed/wiki).
 
 ## Development
 
