@@ -10,15 +10,6 @@ for implementing multi-tenancy & soft deletes.
 ## Supported Databases
 Visit [the official Exposed page](https://github.com/JetBrains/Exposed) for an updated list.
 
-## Links
-
-This fork of Exposed is currently available for **maven/gradle builds** on Jfrog at 
-`https://tmpasipanodya.jfrog.io/artifactory/releases`.
-
-* [Wiki](https://github.com/JetBrains/Exposed/wiki) with examples and docs. 
-* [Change log](ChangeLog.md) of improvements and bug fixes.
-
-Feel free to submit issues and requests via Github.
 
 ## Getting started
 
@@ -31,7 +22,7 @@ dependencies {
 }
 ```
 
-The latest release version is `0.2.1`.
+The latest release version is `0.2.1` and is available on JFrog at `https://tmpasipanodya.jfrog.io/artifactory/releases`.
 
 ## Examples
 
@@ -117,6 +108,13 @@ To initialize test containers and other local development fixtures:
 ```shell
 .scripts/setup.sh
 ```
+
+## Links
+
+* [Wiki](https://github.com/JetBrains/Exposed/wiki) with examples and docs.
+* [Change log](ChangeLog.md) of improvements and bug fixes.
+
+Feel free to submit issues and requests via Github.
 
 ## License
 
