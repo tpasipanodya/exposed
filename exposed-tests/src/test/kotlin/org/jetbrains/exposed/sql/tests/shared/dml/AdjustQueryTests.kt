@@ -255,7 +255,7 @@ class AdjustQueryTests : DatabaseTestsBase() {
                     queryAdjusted.orWhere { scopedPredicate }
                     val actualWhere = queryAdjusted.where
 
-                    assertEquals(((scopedPredicate.and(scopedUsers.defaultScope())).or((scopedPredicate.and(scopedUsers.defaultScope())))).repr(), actualWhere!!.repr())
+                    assertEquals(((scopedPredicate.and(scopedUsers.defaultScope())).or(scopedPredicate).and(scopedUsers.defaultScope())).repr(), actualWhere!!.repr())
                     assertQueryResultValid(queryAdjusted)
                 }
         }
