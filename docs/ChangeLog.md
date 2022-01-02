@@ -1,7 +1,5 @@
 
-# 0.3.0
-- `com.jfrog.artifactory` version `4.25.3`.
-- `org.jetbrains.kotlin.jvm` version `1.6.10`.
+# 0.4.0
 Fetched the following versions & changes from upstream:
 
 ### Upstream Version 0.37.3
@@ -194,6 +192,11 @@ Bug Fixes:
 
 Performance:
 * A lot of low-level improvements in different places
+
+
+# 0.3.0
+- `com.jfrog.artifactory` version `4.25.3`.
+- `org.jetbrains.kotlin.jvm` version `1.6.10`.
 
 # 0.2.2
 - Updated `idTable.batchUpdate` to return the number of updated rows.
