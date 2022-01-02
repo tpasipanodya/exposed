@@ -1,4 +1,4 @@
-name: 'Upload Test Reports'
+name: 'Test Reports'
 on:
   workflow_run:
     workflows: ['CI']
@@ -21,4 +21,11 @@ jobs:
           artifact: Test Artifacts
           name: Postgres Test Results
           path: exposed-tests/build/test-results/postgresTest/*.xml
+          reporter: java-junit
+      - name: Upload Postgres Test Results
+        uses: dorny/test-reporter@v1.5.0
+        with:
+          artifact: Test Artifacts
+          name: Postgres Test Results
+          path: exposed-tests/build/test-results/mysql51Test/*.xml
           reporter: java-junit
