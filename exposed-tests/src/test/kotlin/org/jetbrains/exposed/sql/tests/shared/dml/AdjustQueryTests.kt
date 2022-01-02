@@ -255,7 +255,10 @@ class AdjustQueryTests : DatabaseTestsBase() {
                     queryAdjusted.orWhere { scopedPredicate }
                     val actualWhere = queryAdjusted.where
 
-                    assertEquals(((scopedPredicate.and(scopedUsers.defaultScope())).or(scopedPredicate).and(scopedUsers.defaultScope())).repr(), actualWhere!!.repr())
+                    assertEquals(((scopedPredicate.and(scopedUsers.defaultScope()))
+                        .or(scopedPredicate)
+                        .and(scopedUsers.defaultScope()))
+                        .repr(), actualWhere!!.repr())
                     assertQueryResultValid(queryAdjusted)
                 }
         }
@@ -385,7 +388,7 @@ class AdjustQueryTests : DatabaseTestsBase() {
                 .slice(cities.name)
                 .selectAll()
                 .groupBy(cities.name)
-                .having { predicateHaving }
+                .having { scopedPredicateHaving }
                 .let { queryAdjusted ->
                     queryAdjusted.orHaving { scopedPredicateHaving }
 
@@ -393,6 +396,8 @@ class AdjustQueryTests : DatabaseTestsBase() {
                     assertEquals((scopedPredicateHaving.or(scopedPredicateHaving)).repr(), actualHaving!!.repr())
 
                     val r = queryAdjusted.orderBy(cities.name).toList()
+
+                    println("ayo! ${r.map { it[cities.name] }}")
                     assertEquals(1, r.size)
                     assertEquals("Munich", r[0][cities.name])
                 }
