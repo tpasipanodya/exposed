@@ -24,10 +24,17 @@ jobs:
         with:
           gradle-version: 7.3
           arguments: clean test build artifactoryPublish
-      - name: Upload Test Results
+      - name: Upload Postgres Test Results
         uses: dorny/test-reporter@v1.5.0
         if: success() || failure()
         with:
-          name: Test Results
-          path: exposed-tests/build/test-results/*/*.xml
+          name: Postgres Test Results
+          path: exposed-tests/build/test-results/postgresTest/*.xml
+          reporter: java-junit
+      - name: Upload MySQL Test Results
+        uses: dorny/test-reporter@v1.5.0
+        if: success() || failure()
+        with:
+          name: MySQL Test Results
+          path: exposed-tests/build/test-results/mysql51Test/*.xml
           reporter: java-junit
