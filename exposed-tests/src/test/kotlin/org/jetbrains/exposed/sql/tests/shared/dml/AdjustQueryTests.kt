@@ -259,7 +259,7 @@ class AdjustQueryTests : DatabaseTestsBase() {
                         .or(scopedPredicate)
                         .and(scopedUsers.defaultScope()))
                         .repr(), actualWhere!!.repr())
-                    assertQueryResultValid(queryAdjusted)
+                    assertScopedQueryResultValid(queryAdjusted)
                 }
         }
     }
@@ -429,6 +429,7 @@ class AdjustQueryTests : DatabaseTestsBase() {
             }
         }
     }
+
 
     private fun assertScopedQueryResultValid(query: Query) {
         val users = ScopedUsers
