@@ -21,6 +21,8 @@ jobs:
         with:
           gradle-version: 7.3
           arguments: clean test build artifactoryPublish
+      - name: List Build Outputs
+        run: cd build && ls -lart
       - name: Upload Test Results
         uses: dorny/test-reporter@v1.5.0
         if: success() || failure()
