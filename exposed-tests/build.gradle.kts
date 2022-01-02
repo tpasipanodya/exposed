@@ -37,5 +37,4 @@ tasks.withType<Test>().configureEach {
         showStandardStreams = true
         exceptionFormat = TestExceptionFormat.FULL
     }
-    useJUnitPlatform()
 }
