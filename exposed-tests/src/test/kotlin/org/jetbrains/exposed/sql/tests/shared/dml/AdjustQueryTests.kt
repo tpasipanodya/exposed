@@ -250,12 +250,12 @@ class AdjustQueryTests : DatabaseTestsBase() {
 
             (scopedUsers innerJoin cities)
                 .slice(scopedUsers.name, cities.name)
-                .select { predicate }
+                .select { scopedPredicate }
                 .let { queryAdjusted ->
-                    queryAdjusted.orWhere { predicate }
+                    queryAdjusted.orWhere { scopedPredicate }
                     val actualWhere = queryAdjusted.where
 
-                    assertEquals((predicate.or(predicate)).repr(), actualWhere!!.repr())
+                    assertEquals((scopedPredicate.or(scopedPredicate)).repr(), actualWhere!!.repr())
                     assertQueryResultValid(queryAdjusted)
                 }
         }
@@ -360,23 +360,42 @@ class AdjustQueryTests : DatabaseTestsBase() {
                 users.id.count() eq cities.id.max()
             }
 
-            val queryAdjusted = (cities innerJoin users)
+            (cities innerJoin users)
                 .slice(cities.name)
                 .selectAll()
                 .groupBy(cities.name)
                 .having { predicateHaving }
+                .let { queryAdjusted ->
+                    queryAdjusted.orHaving { predicateHaving }
 
-            queryAdjusted.orHaving {
-                predicateHaving
+                    val actualHaving = queryAdjusted.having
+                    assertEquals((predicateHaving.or(predicateHaving)).repr(), actualHaving!!.repr())
+
+                    val r = queryAdjusted.orderBy(cities.name).toList()
+                    assertEquals(2, r.size)
+                    assertEquals("Munich", r[0][cities.name])
+                    assertEquals("St. Petersburg", r[1][cities.name])
+                }
+
+            val scopedPredicateHaving = Op.build {
+                scopedUsers.id.count() eq cities.id.max()
             }
 
-            val actualHaving = queryAdjusted.having
-            assertEquals((predicateHaving.or(predicateHaving)).repr(), actualHaving!!.repr())
+            (cities innerJoin scopedUsers)
+                .slice(cities.name)
+                .selectAll()
+                .groupBy(cities.name)
+                .having { predicateHaving }
+                .let { queryAdjusted ->
+                    queryAdjusted.orHaving { scopedPredicateHaving }
 
-            val r = queryAdjusted.orderBy(cities.name).toList()
-            assertEquals(2, r.size)
-            assertEquals("Munich", r[0][cities.name])
-            assertEquals("St. Petersburg", r[1][cities.name])
+                    val actualHaving = queryAdjusted.having
+                    assertEquals((scopedPredicateHaving.or(scopedPredicateHaving)).repr(), actualHaving!!.repr())
+
+                    val r = queryAdjusted.orderBy(cities.name).toList()
+                    assertEquals(1, r.size)
+                    assertEquals("Munich", r[0][cities.name])
+                }
         }
     }
 
