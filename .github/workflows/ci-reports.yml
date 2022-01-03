@@ -1,4 +1,4 @@
-name: 'Test Reports'
+name: 'CI Reports'
 on:
   workflow_run:
     workflows:
