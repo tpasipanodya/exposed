@@ -9,7 +9,7 @@ import org.jfrog.gradle.plugin.artifactory.dsl.ResolverConfig
 plugins {
     kotlin("jvm") apply true
     id("org.jetbrains.dokka") version "1.7.10"
-    id("com.jfrog.artifactory") version "4.28.4"
+    id("com.jfrog.artifactory") version "4.29.1"
     id("io.gitlab.arturbosch.detekt")
     id ("java")
     id("maven-publish")
