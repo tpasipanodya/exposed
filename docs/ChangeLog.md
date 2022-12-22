@@ -1,4 +1,10 @@
+# 0.8.0
+ 
+- `jdk` version `18`
+- `jvm` version `1.7.22`
+
 # 0.7.1
+
 - `jvm` version `1.7.0`
 
 # 0.7.0
