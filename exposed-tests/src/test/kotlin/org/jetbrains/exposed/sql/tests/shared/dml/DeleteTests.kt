@@ -10,6 +10,9 @@ import org.jetbrains.exposed.sql.tests.shared.assertEqualLists
 import org.jetbrains.exposed.sql.tests.shared.expectException
 import org.jetbrains.exposed.sql.vendors.H2Dialect
 import org.jetbrains.exposed.sql.vendors.SQLiteDialect
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.like
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.neq
 import org.junit.Test
 
 class DeleteTests : DatabaseTestsBase() {
@@ -76,7 +79,7 @@ class DeleteTests : DatabaseTestsBase() {
 
     @Test
     fun testDeleteTableInContext() {
-        withCitiesAndUsers { _, users, userData ->
+        withCitiesAndUsers {
             userData.deleteAll()
             val userDataExists = userData.selectAll().any()
             assertEquals(false, userDataExists)
@@ -85,7 +88,7 @@ class DeleteTests : DatabaseTestsBase() {
             assertEquals("smth", smthId)
 
             // Now deleteWhere and deleteIgnoreWhere should bring the table it operates on into context
-            users.deleteWhere { name like "%thing" }
+            users.deleteWhere { users.name like "%thing" }
 
             val hasSmth = users.select { users.name.like("%thing") }.firstOrNull()
             assertNull(hasSmth)
