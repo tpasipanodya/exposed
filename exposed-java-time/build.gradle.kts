@@ -1,6 +1,5 @@
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
-import org.jetbrains.kotlin.gradle.dsl.KotlinJvmCompile
 
 plugins {
     kotlin("jvm") apply true
@@ -19,13 +18,13 @@ dependencies {
     testImplementation(kotlin("test-junit"))
 }
 
-tasks.withType<KotlinJvmCompile>().configureEach {
-    kotlinOptions {
-        jvmTarget = "16"
-        apiVersion = "1.5"
-        languageVersion = "1.5"
-    }
-}
+//tasks.withType<KotlinJvmCompile>().configureEach {
+//    kotlinOptions {
+//        jvmTarget = "16"
+//        apiVersion = "1.5"
+//        languageVersion = "1.5"
+//    }
+//}
 
 //tasks.withType<Detekt>().configureEach {
 //    // Target version of the generated JVM bytecode. It is used for type resolution.

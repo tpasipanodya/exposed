@@ -1,5 +1,6 @@
 package org.jetbrains.exposed.sql.tests.shared.dml
 
+import junit.framework.TestCase.assertNull
 import org.jetbrains.exposed.exceptions.UnsupportedByDialectException
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
@@ -13,7 +14,7 @@ import org.junit.Test
 
 class DeleteTests : DatabaseTestsBase() {
     private val notSupportLimit by lazy {
-        val exclude = arrayListOf(TestDB.POSTGRESQL, TestDB.POSTGRESQLNG, TestDB.ORACLE)
+        val exclude = arrayListOf(TestDB.POSTGRESQL, TestDB.POSTGRESQLNG, TestDB.ORACLE, TestDB.H2_PSQL, TestDB.H2_ORACLE)
         if (!SQLiteDialect.ENABLE_UPDATE_DELETE_LIMIT) {
             exclude.add(TestDB.SQLITE)
         }
@@ -70,6 +71,24 @@ class DeleteTests : DatabaseTestsBase() {
                                  listOf(false))
                     assertEquals(3, scopedUsers.stripDefaultFilter().selectAll().count())
                 }
+        }
+    }
+
+    @Test
+    fun testDeleteTableInContext() {
+        withCitiesAndUsers { _, users, userData ->
+            userData.deleteAll()
+            val userDataExists = userData.selectAll().any()
+            assertEquals(false, userDataExists)
+
+            val smthId = users.slice(users.id).select { users.name.like("%thing") }.single()[users.id]
+            assertEquals("smth", smthId)
+
+            // Now deleteWhere and deleteIgnoreWhere should bring the table it operates on into context
+            users.deleteWhere { name like "%thing" }
+
+            val hasSmth = users.select { users.name.like("%thing") }.firstOrNull()
+            assertNull(hasSmth)
         }
     }
 

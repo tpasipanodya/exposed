@@ -1,3 +1,4 @@
+@file:Suppress("Filename", "MatchingDeclarationName")
 package org.jetbrains.exposed.sql.statements.api
 
 interface ExposedConnection<OriginalConnection : Any> {
@@ -6,6 +7,7 @@ interface ExposedConnection<OriginalConnection : Any> {
     fun rollback()
     fun close()
     var autoCommit: Boolean
+    var readOnly: Boolean
     var transactionIsolation: Int
     val connection: OriginalConnection
 

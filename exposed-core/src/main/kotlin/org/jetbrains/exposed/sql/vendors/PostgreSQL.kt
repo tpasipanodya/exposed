@@ -16,7 +16,6 @@ internal object PostgreSQLDataTypeProvider : DataTypeProvider() {
         exposedLogger.warn("The length of the binary column is not required.")
         return binaryType()
     }
-
     override fun blobType(): String = "bytea"
     override fun uuidToDB(value: UUID): Any = value
     override fun dateTimeType(): String = "TIMESTAMP"
@@ -146,18 +145,9 @@ internal object PostgreSQLFunctionProvider : FunctionProvider() {
             append("${transaction.identity(col)}=")
             registerArgument(col, value)
         }
-        +" FROM "
-        if (targets.table != tableToUpdate)
-            targets.table.describe(transaction, this)
 
-        targets.joinParts.appendTo(this, ",") {
-            if (it.joinPart != tableToUpdate)
-                it.joinPart.describe(transaction, this)
-        }
-        +" WHERE "
-        targets.joinParts.appendTo(this, " AND ") {
-            it.appendConditions(this)
-        }
+        appendJoinPartForUpdateClause(tableToUpdate, targets, transaction)
+
         where?.let {
             +" AND "
             +it
@@ -252,10 +242,7 @@ open class PostgreSQLDialect : VendorDialect(dialectName, PostgreSQLDataTypeProv
         return "CREATE INDEX $name ON $table USING $type $columns"
     }
 
-    companion object {
-        /** PostgreSQL dialect name */
-        const val dialectName: String = "postgresql"
-    }
+    companion object : DialectNameProvider("postgresql")
 }
 
 /**
@@ -264,8 +251,5 @@ open class PostgreSQLDialect : VendorDialect(dialectName, PostgreSQLDataTypeProv
  * The driver accepts basic URLs in the following format : jdbc:pgsql://localhost:5432/db
  */
 open class PostgreSQLNGDialect : PostgreSQLDialect() {
-    companion object {
-        /** PostgreSQL-NG dialect name */
-        const val dialectName: String = "pgsql"
-    }
+    companion object : DialectNameProvider("pgsql")
 }

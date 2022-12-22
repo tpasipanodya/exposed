@@ -15,11 +15,13 @@ import org.jetbrains.exposed.sql.tests.currentDialectTest
 import org.jetbrains.exposed.sql.tests.inProperCase
 import org.jetbrains.exposed.sql.tests.shared.dml.UserData
 import org.jetbrains.exposed.sql.tests.shared.dml.Users
+import org.jetbrains.exposed.sql.vendors.OracleDialect
 import org.jetbrains.exposed.sql.vendors.SQLServerDialect
 import org.jetbrains.exposed.sql.vendors.SQLiteDialect
 import org.junit.Test
 import org.postgresql.util.PGobject
 import java.util.*
+import kotlin.random.Random
 import kotlin.test.assertNotNull
 
 class DDLTests : DatabaseTestsBase() {
@@ -75,9 +77,11 @@ class DDLTests : DatabaseTestsBase() {
         withTables(excludeSettings = listOf(TestDB.SQLITE), tables = arrayOf(UnnamedTable)) {
             val q = db.identifierManager.quoteString
             val tableName = if (currentDialectTest.needsQuotesWhenSymbolsInNames) { "$q${"UnnamedTable$1".inProperCase()}$q" } else { "UnnamedTable$1".inProperCase() }
+            val integerType = currentDialectTest.dataTypeProvider.integerType()
+            val varCharType = currentDialectTest.dataTypeProvider.varcharType(42)
             assertEquals(
                 "CREATE TABLE " + addIfNotExistsIfSupported() + "$tableName " +
-                    "(${"id".inProperCase()} ${currentDialectTest.dataTypeProvider.integerType()} PRIMARY KEY, $q${"name".inProperCase()}$q VARCHAR(42) NOT NULL)",
+                    "(${"id".inProperCase()} $integerType PRIMARY KEY, $q${"name".inProperCase()}$q $varCharType NOT NULL)",
                 UnnamedTable.ddl
             )
         }
@@ -87,9 +91,11 @@ class DDLTests : DatabaseTestsBase() {
         withDb(TestDB.SQLITE) {
             val q = db.identifierManager.quoteString
             val tableName = if (currentDialectTest.needsQuotesWhenSymbolsInNames) { "$q${"UnnamedTable$1".inProperCase()}$q" } else { "UnnamedTable$1".inProperCase() }
+            val integerType = currentDialectTest.dataTypeProvider.integerType()
+            val varCharType = currentDialectTest.dataTypeProvider.varcharType(42)
             assertEquals(
                 "CREATE TABLE " + addIfNotExistsIfSupported() + "$tableName " +
-                    "(${"id".inProperCase()} ${currentDialectTest.dataTypeProvider.integerType()} NOT NULL PRIMARY KEY, $q${"name".inProperCase()}$q VARCHAR(42) NOT NULL)",
+                    "(${"id".inProperCase()} $integerType NOT NULL PRIMARY KEY, $q${"name".inProperCase()}$q $varCharType NOT NULL)",
                 UnnamedTable.ddl
             )
         }
@@ -116,11 +122,12 @@ class DDLTests : DatabaseTestsBase() {
             override val primaryKey = PrimaryKey(name)
         }
 
-        withTables(excludeSettings = listOf(TestDB.MYSQL, TestDB.ORACLE, TestDB.MARIADB, TestDB.SQLITE), tables = arrayOf(TestTable)) {
+        withTables(excludeSettings = listOf(TestDB.MYSQL, TestDB.ORACLE, TestDB.MARIADB, TestDB.SQLITE, TestDB.H2_ORACLE), tables = arrayOf(TestTable)) {
+            val varCharType = currentDialectTest.dataTypeProvider.varcharType(42)
             assertEquals(
                 "CREATE TABLE " + addIfNotExistsIfSupported() + "${"different_column_types".inProperCase()} " +
                     "(${"id".inProperCase()} ${currentDialectTest.dataTypeProvider.integerAutoincType()} NOT NULL, " +
-                    "\"${"name".inProperCase()}\" VARCHAR(42) PRIMARY KEY, " +
+                    "\"${"name".inProperCase()}\" $varCharType PRIMARY KEY, " +
                     "${"age".inProperCase()} ${currentDialectTest.dataTypeProvider.integerType()} NULL)",
                 TestTable.ddl
             )
@@ -138,9 +145,10 @@ class DDLTests : DatabaseTestsBase() {
 
         withTables(excludeSettings = listOf(TestDB.MYSQL, TestDB.SQLITE), tables = arrayOf(TestTable)) {
             val q = db.identifierManager.quoteString
+            val varCharType = currentDialectTest.dataTypeProvider.varcharType(42)
             val tableDescription = "CREATE TABLE " + addIfNotExistsIfSupported() + "with_different_column_types".inProperCase()
             val idDescription = "${"id".inProperCase()} ${currentDialectTest.dataTypeProvider.integerType()}"
-            val nameDescription = "$q${"name".inProperCase()}$q VARCHAR(42)"
+            val nameDescription = "$q${"name".inProperCase()}$q $varCharType"
             val ageDescription = "${"age".inProperCase()} ${db.dialect.dataTypeProvider.integerType()} NULL"
             val constraint = "CONSTRAINT pk_with_different_column_types PRIMARY KEY (${"id".inProperCase()}, $q${"name".inProperCase()}$q)"
 
@@ -331,22 +339,37 @@ class DDLTests : DatabaseTestsBase() {
         }
 
         withTables(t) {
-            val bytes = "Hello there!".toByteArray()
-            val blob = ExposedBlob(bytes)
+            val shortBytes = "Hello there!".toByteArray()
+            val longBytes = Random.nextBytes(1024)
+            val shotBlob = ExposedBlob(shortBytes)
+            val longBlob = ExposedBlob(longBytes)
 //            if (currentDialectTest.dataTypeProvider.blobAsStream) {
 //                    SerialBlob(bytes)
 //                } else connection.createBlob().apply {
 //                    setBytes(1, bytes)
 //                }
 
-            val id = t.insert {
-                it[t.b] = blob
+            val id1 = t.insert {
+                it[t.b] = shotBlob
             } get (t.id)
 
-            val readOn = t.select { t.id eq id }.first()[t.b]
-            val text = String(readOn.bytes) // .reader().readText()
+            val id2 = t.insert {
+                it[t.b] = longBlob
+            } get (t.id)
 
-            assertEquals("Hello there!", text)
+            val readOn1 = t.select { t.id eq id1 }.first()[t.b]
+            val text1 = String(readOn1.bytes)
+            val text2 = readOn1.inputStream.bufferedReader().readText()
+
+            assertEquals("Hello there!", text1)
+            assertEquals("Hello there!", text2)
+
+            val readOn2 = t.select { t.id eq id2 }.first()[t.b]
+            val bytes1 = readOn2.bytes
+            val bytes2 = readOn2.inputStream.readBytes()
+
+            assertTrue(longBytes.contentEquals(bytes1))
+            assertTrue(longBytes.contentEquals(bytes2))
         }
     }
 
@@ -358,7 +381,7 @@ class DDLTests : DatabaseTestsBase() {
 
         fun SizedIterable<ResultRow>.readAsString() = map { String(it[tableWithBinary.binaryColumn]) }
 
-        withDb(listOf(TestDB.POSTGRESQL, TestDB.POSTGRESQLNG, TestDB.SQLITE)) {
+        withDb(listOf(TestDB.POSTGRESQL, TestDB.POSTGRESQLNG, TestDB.SQLITE, TestDB.H2_PSQL)) {
             val exposedBytes = "Exposed".toByteArray()
             val kotlinBytes = "Kotlin".toByteArray()
 
@@ -552,8 +575,7 @@ class DDLTests : DatabaseTestsBase() {
         }
     }
 
-    @ExperimentalUnsignedTypes
-    @Test fun testUByteColumnType() {
+        @Test fun testUByteColumnType() {
         val UbyteTable = object : Table("ubyteTable") {
             val ubyte = ubyte("ubyte")
         }
@@ -568,8 +590,7 @@ class DDLTests : DatabaseTestsBase() {
         }
     }
 
-    @ExperimentalUnsignedTypes
-    @Test fun testUshortColumnType() {
+        @Test fun testUshortColumnType() {
         val UshortTable = object : Table("ushortTable") {
             val ushort = ushort("ushort")
         }
@@ -584,8 +605,7 @@ class DDLTests : DatabaseTestsBase() {
         }
     }
 
-    @ExperimentalUnsignedTypes
-    @Test fun testUintColumnType() {
+        @Test fun testUintColumnType() {
         val UintTable = object : Table("uintTable") {
             val uint = uinteger("uint")
         }
@@ -600,8 +620,7 @@ class DDLTests : DatabaseTestsBase() {
         }
     }
 
-    @ExperimentalUnsignedTypes
-    @Test fun testUlongColumnType() {
+        @Test fun testUlongColumnType() {
         val UlongTable = object : Table("ulongTable") {
             val ulong = ulong("ulong")
         }
@@ -613,6 +632,55 @@ class DDLTests : DatabaseTestsBase() {
             val result = UlongTable.selectAll().toList()
             assertEquals(1, result.size)
             assertEquals(123uL, result.single()[UlongTable.ulong])
+        }
+    }
+
+    @Test fun tableWithDifferentTextTypes() {
+        val TestTable = object : Table("different_text_column_types") {
+            val id = integer("id").autoIncrement()
+            val txt = text("txt")
+            val txtMed = mediumText("txt_med")
+            val txtLong = largeText("txt_large")
+
+            override val primaryKey: PrimaryKey = PrimaryKey(id)
+        }
+
+        withDb(listOf(TestDB.POSTGRESQL, TestDB.POSTGRESQLNG, TestDB.MYSQL, TestDB.H2_PSQL)) { testDb ->
+            SchemaUtils.create(TestTable)
+            assertEquals(
+                "CREATE TABLE " + addIfNotExistsIfSupported() + "${"different_text_column_types".inProperCase()} " +
+                    "(${TestTable.id.nameInDatabaseCase()} ${currentDialectTest.dataTypeProvider.integerAutoincType()} PRIMARY KEY, " +
+                    "${TestTable.txt.nameInDatabaseCase()} ${currentDialectTest.dataTypeProvider.textType()} NOT NULL, " +
+                    "${TestTable.txtMed.nameInDatabaseCase()} ${currentDialectTest.dataTypeProvider.mediumTextType()} NOT NULL, " +
+                    "${TestTable.txtLong.nameInDatabaseCase()} ${currentDialectTest.dataTypeProvider.largeTextType()} NOT NULL)",
+                TestTable.ddl
+            )
+
+            // double check that different types were applied indeed
+            assert(
+                testDb != TestDB.MYSQL ||
+                    (
+                        currentDialectTest.dataTypeProvider.textType() != currentDialectTest.dataTypeProvider.mediumTextType() &&
+                            currentDialectTest.dataTypeProvider.mediumTextType() != currentDialectTest.dataTypeProvider.largeTextType() &&
+                            currentDialectTest.dataTypeProvider.textType() != currentDialectTest.dataTypeProvider.largeTextType()
+                        )
+            )
+
+            TestTable.insert {
+                it[txt] = "1Txt"
+                it[txtMed] = "1TxtMed"
+                it[txtLong] = "1TxtLong"
+            }
+
+            val concat = SqlExpressionBuilder.concat(
+                separator = " ",
+                listOf(LowerCase(TestTable.txt), UpperCase(TestTable.txtMed), LowerCase(TestTable.txtLong))
+            )
+
+            // just to be sure new type didn't break the functions
+            TestTable.slice(concat).selectAll().forEach {
+                assertEquals(it[concat], "1txt 1TXTMED 1txtlong")
+            }
         }
     }
 
@@ -759,10 +827,14 @@ class DDLTests : DatabaseTestsBase() {
 
     @Test
     fun createTableWithForeignKeyToAnotherSchema() {
-        val one = Schema("one")
-        val two = Schema("two")
-        withSchemas(excludeSettings = listOf(TestDB.SQLITE), schemas = arrayOf(two, one)) {
-            SchemaUtils.create(TableFromSchemeOne, TableFromSchemeTwo)
+        val one = prepareSchemaForTest("one")
+        val two = prepareSchemaForTest("two")
+        withSchemas(two, one) {
+            SchemaUtils.create(TableFromSchemeOne)
+            if (currentDialectTest is OracleDialect) {
+                exec("GRANT SELECT ON ${TableFromSchemeOne.tableName} to TWO;")
+            }
+            SchemaUtils.create(TableFromSchemeTwo)
             val idFromOne = TableFromSchemeOne.insertAndGetId { }
 
             TableFromSchemeTwo.insert {
@@ -925,4 +997,35 @@ class DDLTests : DatabaseTestsBase() {
             }
         }
     }
+
+    @Test
+    fun createTableWithCompositePrimaryKeyAndSchema() {
+        val one = prepareSchemaForTest("test")
+        val tableA = object : Table("test.table_a") {
+            val idA = integer("id_a")
+            val idB = integer("id_b")
+            override val primaryKey = PrimaryKey(idA, idB)
+        }
+
+        val tableB = object : Table("test.table_b") {
+            val idA = integer("id_a")
+            val idB = integer("id_b")
+            override val primaryKey = PrimaryKey(arrayOf(idA, idB))
+        }
+
+        withSchemas(one) {
+            SchemaUtils.create(tableA, tableB)
+            tableA.insert { it[idA] = 1; it[idB] = 1 }
+            tableB.insert { it[idA] = 1; it[idB] = 1 }
+
+            assertEquals(1, tableA.selectAll().count())
+            assertEquals(1, tableB.selectAll().count())
+
+            if (currentDialectTest is SQLServerDialect) {
+                SchemaUtils.drop(tableA, tableB)
+            }
+
+        }
+    }
+
 }

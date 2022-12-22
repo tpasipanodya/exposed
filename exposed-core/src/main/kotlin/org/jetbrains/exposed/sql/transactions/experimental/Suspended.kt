@@ -1,6 +1,5 @@
 package org.jetbrains.exposed.sql.transactions.experimental
 
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ThreadContextElement
@@ -28,7 +27,10 @@ internal class TransactionScope(internal val tx: Lazy<Transaction>, parent: Coro
     companion object : CoroutineContext.Key<TransactionScope>
 }
 
-internal class TransactionCoroutineElement(private val newTransaction: Lazy<Transaction>, val manager: TransactionManager) : ThreadContextElement<TransactionContext> {
+internal class TransactionCoroutineElement(
+    private val newTransaction: Lazy<Transaction>,
+    val manager: TransactionManager
+) : ThreadContextElement<TransactionContext> {
     override val key: CoroutineContext.Key<TransactionCoroutineElement> = Companion
 
     override fun updateThreadContext(context: CoroutineContext): TransactionContext {
@@ -48,7 +50,7 @@ internal class TransactionCoroutineElement(private val newTransaction: Lazy<Tran
 }
 
 suspend fun <T> newSuspendedTransaction(
-    context: CoroutineDispatcher? = null,
+    context: CoroutineContext? = null,
     db: Database? = null,
     transactionIsolation: Int? = null,
     statement: suspend Transaction.() -> T
@@ -57,13 +59,13 @@ suspend fun <T> newSuspendedTransaction(
         suspendedTransactionAsyncInternal(true, statement).await()
     }
 
-suspend fun <T> Transaction.suspendedTransaction(context: CoroutineDispatcher? = null, statement: suspend Transaction.() -> T): T =
+suspend fun <T> Transaction.suspendedTransaction(context: CoroutineContext? = null, statement: suspend Transaction.() -> T): T =
     withTransactionScope(context, this, db = null, transactionIsolation = null) {
         suspendedTransactionAsyncInternal(false, statement).await()
     }
 
 suspend fun <T> suspendedTransactionAsync(
-    context: CoroutineDispatcher? = null,
+    context: CoroutineContext? = null,
     db: Database? = null,
     transactionIsolation: Int? = null,
     statement: suspend Transaction.() -> T

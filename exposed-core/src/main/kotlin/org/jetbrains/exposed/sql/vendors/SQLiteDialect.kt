@@ -118,7 +118,7 @@ internal object SQLiteFunctionProvider : FunctionProvider() {
         }
         val builder = QueryBuilder(true)
         val columns = data.joinToString { transaction.identity(it.first) }
-        val values = builder.apply { data.appendTo { registerArgument(it.first.columnType, it.second) } }.toString()
+        val values = builder.apply { data.appendTo { registerArgument(it.first, it.second) } }.toString()
         return "INSERT OR REPLACE INTO ${transaction.identity(table)} ($columns) VALUES ($values)"
     }
 
@@ -166,10 +166,7 @@ open class SQLiteDialect : VendorDialect(dialectName, SQLiteDataTypeProvider, SQ
 
     override fun dropDatabase(name: String) = "DETACH DATABASE ${name.inProperCase()}"
 
-    companion object {
-        /** SQLite dialect name */
-        const val dialectName: String = "sqlite"
-
+    companion object : DialectNameProvider("sqlite") {
         val ENABLE_UPDATE_DELETE_LIMIT by lazy {
             var conn: Connection? = null
             var stmt: Statement? = null

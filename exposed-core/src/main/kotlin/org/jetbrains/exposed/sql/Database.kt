@@ -3,7 +3,6 @@ package org.jetbrains.exposed.sql
 import org.jetbrains.annotations.TestOnly
 import org.jetbrains.exposed.sql.statements.api.ExposedConnection
 import org.jetbrains.exposed.sql.statements.api.ExposedDatabaseMetadata
-import org.jetbrains.exposed.sql.transactions.DEFAULT_ISOLATION_LEVEL
 import org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManager
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.vendors.*
@@ -69,7 +68,7 @@ class Database private constructor(
     }
 
     companion object {
-        private val dialects = ConcurrentHashMap<String, () -> DatabaseDialect>()
+        internal val dialects = ConcurrentHashMap<String, () -> DatabaseDialect>()
 
         private val connectionInstanceImpl: DatabaseConnectionAutoRegistration =
             ServiceLoader.load(DatabaseConnectionAutoRegistration::class.java, Database::class.java.classLoader).firstOrNull()
@@ -146,7 +145,7 @@ class Database private constructor(
         }
 
         @Deprecated(
-            level = DeprecationLevel.ERROR,
+            level = DeprecationLevel.HIDDEN,
             replaceWith = ReplaceWith("connectPool(datasource, setupConnection, manager)"),
             message = "Use connectPool instead"
         )
@@ -189,7 +188,8 @@ class Database private constructor(
                 explicitVendor = null,
                 config = databaseConfig,
                 getNewConnection = getNewConnection,
-                manager = manager)
+                manager = manager
+            )
         }
 
         fun connect(
@@ -201,7 +201,7 @@ class Database private constructor(
             databaseConfig: DatabaseConfig? = null,
             manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it) }
         ): Database {
-            Class.forName(driver).newInstance()
+            Class.forName(driver).getDeclaredConstructor().newInstance()
             val dialectName = getDialectName(url) ?: error("Can't resolve dialect for connection: $url")
             return doConnect(dialectName, databaseConfig, { DriverManager.getConnection(url, user, password) }, setupConnection, manager)
         }

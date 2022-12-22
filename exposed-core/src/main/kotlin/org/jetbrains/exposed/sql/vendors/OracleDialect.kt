@@ -13,7 +13,10 @@ internal object OracleDataTypeProvider : DataTypeProvider() {
     override fun longType(): String = "NUMBER(19)"
     override fun longAutoincType(): String = "NUMBER(19)"
     override fun ulongType(): String = "NUMBER(20)"
+    override fun varcharType(colLength: Int): String = "VARCHAR2($colLength CHAR)"
     override fun textType(): String = "CLOB"
+    override fun mediumTextType(): String = textType()
+    override fun largeTextType(): String = textType()
     override fun timeType(): String = dateTimeType()
     override fun binaryType(): String {
         exposedLogger.error("Binary type is unsupported for Oracle. Please use blob column type instead.")
@@ -21,6 +24,7 @@ internal object OracleDataTypeProvider : DataTypeProvider() {
     }
 
     override fun binaryType(length: Int): String {
+        @Suppress("MagicNumber")
         return if (length < 2000) "RAW ($length)"
         else binaryType()
     }
@@ -253,8 +257,5 @@ open class OracleDialect : VendorDialect(dialectName, OracleDataTypeProvider, Or
         }
     }
 
-    companion object {
-        /** Oracle dialect name */
-        const val dialectName: String = "oracle"
-    }
+    companion object : DialectNameProvider("oracle")
 }

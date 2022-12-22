@@ -3,6 +3,7 @@ package org.jetbrains.exposed.dao
 import org.jetbrains.exposed.dao.exceptions.EntityNotFoundException
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import kotlin.properties.Delegates
 import kotlin.reflect.KProperty
@@ -228,13 +229,12 @@ open class Entity<ID : Comparable<ID>>(val id: EntityID<ID>) {
     }
 
     infix fun <TID : Comparable<TID>, Target : Entity<TID>> EntityClass<TID, Target>.via(table: Table): InnerTableLink<ID, Entity<ID>, TID, Target> =
-        InnerTableLink(table, this@via)
+        InnerTableLink(table, this@Entity.id.table, this@via)
 
     fun <TID : Comparable<TID>, Target : Entity<TID>> EntityClass<TID, Target>.via(
         sourceColumn: Column<EntityID<ID>>,
         targetColumn: Column<EntityID<TID>>
-    ) =
-        InnerTableLink(sourceColumn.table, this@via, sourceColumn, targetColumn)
+    ) = InnerTableLink(sourceColumn.table, this@Entity.id.table, this@via, sourceColumn, targetColumn)
 
     /**
      * Delete this entity.
@@ -243,9 +243,11 @@ open class Entity<ID : Comparable<ID>>(val id: EntityID<ID>) {
      */
     open fun delete() {
         val table = klass.table
-        TransactionManager.current().registerChange(klass, id, EntityChangeType.Removed)
+        // Capture reference to the field
+        val entityId = this.id
+        TransactionManager.current().registerChange(klass, entityId, EntityChangeType.Removed)
         executeAsPartOfEntityLifecycle {
-            table.deleteWhere { table.id eq id }
+            table.deleteWhere { table.id eq entityId }
         }
         klass.removeFromCache(this)
     }

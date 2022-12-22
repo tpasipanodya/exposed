@@ -8,7 +8,6 @@ import org.jetbrains.exposed.sql.tests.currentDialectTest
 import org.jetbrains.exposed.sql.vendors.*
 import org.junit.Test
 import java.math.BigDecimal
-import kotlin.reflect.KClass
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -343,8 +342,8 @@ class GroupByTests : DatabaseTestsBase() {
 
     @Test
     fun testGroupConcat() {
-        withCitiesAndUsers(listOf(TestDB.SQLITE)) {
-            fun <T : String?> GroupConcat<T>.checkExcept(vararg dialects: KClass<out DatabaseDialect>, assert: (Map<String, String?>) -> Unit) {
+        withCitiesAndUsers(exclude = listOf(TestDB.SQLITE)) {
+            fun <T : String?> GroupConcat<T>.checkExcept(vararg dialects: VendorDialect.DialectNameProvider, assert: (Map<String, String?>) -> Unit) {
                 try {
                     cities.leftJoin(users)
                         .slice(cities.name, this)
@@ -353,15 +352,22 @@ class GroupByTests : DatabaseTestsBase() {
                         .associate { it[cities.name] to it[this] }
                         .let { result -> assert(result) }
                 } catch (e: UnsupportedByDialectException) {
-                    assertTrue(e.dialect::class in dialects, e.message!!)
+                    val dialectNames = dialects.map { it.dialectName }
+                    val dialect = e.dialect
+                    val check = when {
+                        dialect.name in dialectNames -> true
+                        dialect is H2Dialect && dialect.delegatedDialectNameProvider != null -> dialect.delegatedDialectNameProvider!!.dialectName in dialectNames
+                        else -> false
+                    }
+                    assertTrue(check, e.message!!)
                 }
             }
 
-            users.name.groupConcat().checkExcept(PostgreSQLDialect::class, PostgreSQLNGDialect::class, SQLServerDialect::class, OracleDialect::class) {
+            users.name.groupConcat().checkExcept(PostgreSQLDialect, PostgreSQLNGDialect, SQLServerDialect, OracleDialect) {
                 assertEquals(3, it.size)
             }
 
-            users.name.groupConcat(separator = ", ").checkExcept(OracleDialect::class) {
+            users.name.groupConcat(separator = ", ").checkExcept(OracleDialect) {
                 assertEquals(3, it.size)
                 assertEquals("Andrey", it["St. Petersburg"])
                 when (currentDialectTest) {
@@ -373,13 +379,20 @@ class GroupByTests : DatabaseTestsBase() {
                 assertNull(it["Prague"])
             }
 
-            users.name.groupConcat(separator = " | ", distinct = true).checkExcept(OracleDialect::class) {
+            users.name.groupConcat(separator = " | ", distinct = true).checkExcept(OracleDialect) {
                 assertEquals(3, it.size)
                 assertEquals("Andrey", it["St. Petersburg"])
                 when (currentDialectTest) {
                     is MariaDBDialect -> assertEquals(true, it["Munich"] in listOf("Sergey | Eugene", "Eugene | Sergey"))
-                    is MysqlDialect, is SQLServerDialect, is H2Dialect, is PostgreSQLDialect, is PostgreSQLNGDialect ->
+                    is MysqlDialect, is SQLServerDialect, is PostgreSQLDialect ->
                         assertEquals("Eugene | Sergey", it["Munich"])
+                    is H2Dialect -> {
+                        if (currentDialect.h2Mode == H2Dialect.H2CompatibilityMode.SQLServer) {
+                            assertEquals("Sergey | Eugene", it["Munich"])
+                        } else {
+                            assertEquals("Eugene | Sergey", it["Munich"])
+                        }
+                    }
                     else -> assertEquals("Sergey | Eugene", it["Munich"])
                 }
                 assertNull(it["Prague"])
@@ -404,7 +417,7 @@ class GroupByTests : DatabaseTestsBase() {
     @Test
     fun testGroupConcatWithADefaultFilter() {
         withCitiesAndUsers(listOf(TestDB.SQLITE)) {
-            fun <T : String?> GroupConcat<T>.checkExcept(vararg dialects: KClass<out DatabaseDialect>, assert: (Map<String, String?>) -> Unit) {
+            fun <T : String?> GroupConcat<T>.checkExcept(vararg dialects: VendorDialect.DialectNameProvider, assert: (Map<String, String?>) -> Unit) {
                 try {
                     cities.leftJoin(scopedUsers)
                         .slice(cities.name, this)
@@ -413,22 +426,29 @@ class GroupByTests : DatabaseTestsBase() {
                         .associate { it[cities.name] to it[this] }
                         .let { result -> assert(result) }
                 } catch (e: UnsupportedByDialectException) {
-                    assertTrue(e.dialect::class in dialects, e.message!!)
+                    val dialectNames = dialects.map { it.dialectName }
+                    val dialect = e.dialect
+                    val check = when {
+                        dialect.name in dialectNames -> true
+                        dialect is H2Dialect && dialect.delegatedDialectNameProvider != null -> dialect.delegatedDialectNameProvider!!.dialectName in dialectNames
+                        else -> false
+                    }
+                    assertTrue(check, e.message!!)
                 }
             }
 
             scopedUsers.name
                 .groupConcat()
                 .checkExcept(
-                    PostgreSQLDialect::class,
-                    PostgreSQLNGDialect::class,
-                    SQLServerDialect::class,
-                    OracleDialect::class
+                    PostgreSQLDialect,
+                    PostgreSQLNGDialect,
+                    SQLServerDialect,
+                    OracleDialect
                 ) { assertEquals(1, it.size) }
 
             scopedUsers.name
                 .groupConcat(separator = ", ")
-                .checkExcept(OracleDialect::class) {
+                .checkExcept(OracleDialect) {
                     assertEquals(1, it.size)
                     when (currentDialectTest) {
                         is MariaDBDialect -> assertEquals(true, it["Munich"] in listOf("Sergey, Eugene", "Eugene, Sergey"))
@@ -440,7 +460,7 @@ class GroupByTests : DatabaseTestsBase() {
 
             scopedUsers.name
                 .groupConcat(separator = " | ", distinct = true)
-                .checkExcept(OracleDialect::class) {
+                .checkExcept(OracleDialect) {
                     assertEquals(1, it.size)
                     when (currentDialectTest) {
                         is MariaDBDialect -> assertEquals(true, it["Munich"] in listOf("Sergey | Eugene", "Eugene | Sergey"))

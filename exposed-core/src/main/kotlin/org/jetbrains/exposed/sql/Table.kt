@@ -214,19 +214,7 @@ class Join(
     override fun describe(s: Transaction, queryBuilder: QueryBuilder): Unit = queryBuilder {
         table.describe(s, this)
         for (p in joinParts) {
-            append(" ${p.joinType} JOIN ")
-            val isJoin = p.joinPart is Join
-            if (isJoin) {
-                append("(")
-            }
-            p.joinPart.describe(s, this)
-            if (isJoin) {
-                append(")")
-            }
-            if (p.joinType != JoinType.CROSS) {
-                append(" ON ")
-                p.appendConditions(this)
-            }
+            p.describe(s, this)
         }
     }
 
@@ -315,6 +303,22 @@ class Join(
             require(joinType == JoinType.CROSS || conditions.isNotEmpty() || additionalConstraint != null) { "Missing join condition on $${this.joinPart}" }
         }
 
+        fun describe(transaction: Transaction, builder: QueryBuilder) = with(builder) {
+            append(" $joinType JOIN ")
+            val isJoin = joinPart is Join
+            if (isJoin) {
+                append("(")
+            }
+            joinPart.describe(transaction, this)
+            if (isJoin) {
+                append(")")
+            }
+            if (joinType != JoinType.CROSS) {
+                append(" ON ")
+                appendConditions(this)
+            }
+        }
+
         fun appendConditions(builder: QueryBuilder) = builder {
             conditions.appendTo(this, " AND ") { (pkColumn, fkColumn) -> append(pkColumn, " = ", fkColumn) }
             if (additionalConstraint != null) {
@@ -336,6 +340,7 @@ class Join(
  *
  * @param name Table name, by default name will be resolved from a class name with "Table" suffix removed (if present)
  */
+@Suppress("TooManyFunctions")
 open class Table(name: String = "") : ColumnSet(), DdlAware {
     /** Returns the table name. */
     open val tableName: String = when {
@@ -352,6 +357,8 @@ open class Table(name: String = "") : ColumnSet(), DdlAware {
     open fun stripDefaultFilter() = TableWithDefaultFilterStriped(this)
 
     internal val tableNameWithoutScheme: String get() = tableName.substringAfter(".")
+    // Table name may contain quotes, remove those before appending
+    internal val tableNameWithoutSchemeSanitized: String get() = tableNameWithoutScheme.replace("\"", "").replace("'", "")
 
     private val _columns = mutableListOf<Column<*>>()
 
@@ -429,7 +436,7 @@ open class Table(name: String = "") : ColumnSet(), DdlAware {
 
     // Primary keys
 
-    internal fun isCustomPKNameDefined(): Boolean = primaryKey?.let { it.name != "pk_$tableName" } == true
+    internal fun isCustomPKNameDefined(): Boolean = primaryKey?.let { it.name != "pk_$tableNameWithoutSchemeSanitized" } == true
 
     /**
      * Represents a primary key composed by the specified [columns], and with the specified [name].
@@ -440,12 +447,12 @@ open class Table(name: String = "") : ColumnSet(), DdlAware {
     inner class PrimaryKey(
         /** Returns the columns that compose the primary key. */
         val columns: Array<Column<*>>,
-        /** Returns the name of the primary key. */
-        val name: String = "pk_$tableName",
+        name: String? = null
     ) {
-        constructor(firstColumn: Column<*>,
-                    vararg columns: Column<*>,
-                    name: String = "pk_$tableName") :
+        /** Returns the name of the primary key. */
+        val name: String by lazy { name ?: "pk_$tableNameWithoutSchemeSanitized" }
+
+        constructor(firstColumn: Column<*>, vararg columns: Column<*>, name: String? = null) :
             this(arrayOf(firstColumn, *columns), name)
 
         init {
@@ -493,29 +500,25 @@ open class Table(name: String = "") : ColumnSet(), DdlAware {
     fun byte(name: String): Column<Byte> = registerColumn(name, ByteColumnType())
 
     /** Creates a numeric column, with the specified [name], for storing 1-byte unsigned integers. */
-    @ExperimentalUnsignedTypes
-    fun ubyte(name: String): Column<UByte> = registerColumn(name, UByteColumnType())
+        fun ubyte(name: String): Column<UByte> = registerColumn(name, UByteColumnType())
 
     /** Creates a numeric column, with the specified [name], for storing 2-byte integers. */
     fun short(name: String): Column<Short> = registerColumn(name, ShortColumnType())
 
     /** Creates a numeric column, with the specified [name], for storing 2-byte unsigned integers. */
-    @ExperimentalUnsignedTypes
-    fun ushort(name: String): Column<UShort> = registerColumn(name, UShortColumnType())
+        fun ushort(name: String): Column<UShort> = registerColumn(name, UShortColumnType())
 
     /** Creates a numeric column, with the specified [name], for storing 4-byte integers. */
     fun integer(name: String): Column<Int> = registerColumn(name, IntegerColumnType())
 
     /** Creates a numeric column, with the specified [name], for storing 4-byte unsigned integers. */
-    @ExperimentalUnsignedTypes
-    fun uinteger(name: String): Column<UInt> = registerColumn(name, UIntegerColumnType())
+        fun uinteger(name: String): Column<UInt> = registerColumn(name, UIntegerColumnType())
 
     /** Creates a numeric column, with the specified [name], for storing 8-byte integers. */
     fun long(name: String): Column<Long> = registerColumn(name, LongColumnType())
 
     /** Creates a numeric column, with the specified [name], for storing 8-byte unsigned integers. */
-    @ExperimentalUnsignedTypes
-    fun ulong(name: String): Column<ULong> = registerColumn(name, ULongColumnType())
+        fun ulong(name: String): Column<ULong> = registerColumn(name, ULongColumnType())
 
     /** Creates a numeric column, with the specified [name], for storing 4-byte (single precision) floating-point numbers. */
     fun float(name: String): Column<Float> = registerColumn(name, FloatColumnType())
@@ -554,14 +557,36 @@ open class Table(name: String = "") : ColumnSet(), DdlAware {
 
     /**
      * Creates a character column, with the specified [name], for storing strings of arbitrary length using the specified [collate] type.
-     * If no collate type is specified then the database default is used.
+     * If no collated type is specified, then the database default is used.
      *
-     * Some database drivers do not load text content immediately (by performance and memory reasons)
-     * what means that you can obtain column value only within the open transaction.
+     * Some database drivers do not load text content immediately (for performance and memory reasons),
+     * which means that you can obtain column value only within the open transaction.
      * If you desire to make content available outside the transaction use [eagerLoading] param.
      */
     fun text(name: String, collate: String? = null, eagerLoading: Boolean = false): Column<String> =
         registerColumn(name, TextColumnType(collate, eagerLoading))
+
+    /**
+     * Creates a character column, with the specified [name], for storing strings of _medium_ length using the specified [collate] type.
+     * If no collated type is specified, then the database default is used.
+     *
+     * Some database drivers do not load text content immediately (for performance and memory reasons),
+     * which means that you can obtain column value only within the open transaction.
+     * If you desire to make content available outside the transaction use [eagerLoading] param.
+     */
+    fun mediumText(name: String, collate: String? = null, eagerLoading: Boolean = false): Column<String> =
+        registerColumn(name, MediumTextColumnType(collate, eagerLoading))
+
+    /**
+     * Creates a character column, with the specified [name], for storing strings of _large_ length using the specified [collate] type.
+     * If no collated type is specified, then the database default is used.
+     *
+     * Some database drivers do not load text content immediately (for performance and memory reasons),
+     * which means that you can obtain column value only within the open transaction.
+     * If you desire to make content available outside the transaction use [eagerLoading] param.
+     */
+    fun largeText(name: String, collate: String? = null, eagerLoading: Boolean = false): Column<String> =
+        registerColumn(name, LargeTextColumnType(collate, eagerLoading))
 
     // Binary columns
 
@@ -693,7 +718,7 @@ open class Table(name: String = "") : ColumnSet(), DdlAware {
     }
 
     /** Sets the default value for this column in the client side. */
-    fun <T : Any> Column<T>.clientDefault(defaultValue: () -> T): Column<T> = apply {
+    fun <T> Column<T>.clientDefault(defaultValue: () -> T): Column<T> = apply {
         dbDefaultValue = null
         defaultValueFun = defaultValue
     }

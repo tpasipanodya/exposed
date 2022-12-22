@@ -8,6 +8,7 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.times
 import org.jetbrains.exposed.sql.decimalLiteral
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
+import org.jetbrains.exposed.sql.tests.TestDB
 import org.jetbrains.exposed.sql.tests.shared.assertEquals
 import org.junit.Test
 import java.math.BigDecimal
@@ -15,7 +16,7 @@ import java.math.BigDecimal
 class ArithmeticTests : DatabaseTestsBase() {
     @Test
     fun `test operator precedence of minus() plus() div() times()`() {
-        withCitiesAndUsers {
+        withCitiesAndUsers(exclude = listOf(TestDB.H2_ORACLE)) {
             val calculatedColumn = ((userData.value - 5) * 2) / 2
             userData
                 .slice(userData.value, calculatedColumn)

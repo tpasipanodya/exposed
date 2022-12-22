@@ -4,9 +4,11 @@ import org.jetbrains.exposed.sql.Column
 import org.jetbrains.exposed.sql.ColumnType
 import org.jetbrains.exposed.sql.IDateColumnType
 import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.vendors.H2Dialect
 import org.jetbrains.exposed.sql.vendors.OracleDialect
 import org.jetbrains.exposed.sql.vendors.SQLiteDialect
 import org.jetbrains.exposed.sql.vendors.currentDialect
+import org.jetbrains.exposed.sql.vendors.h2Mode
 import java.sql.ResultSet
 import java.time.*
 import java.time.format.DateTimeFormatter
@@ -79,8 +81,8 @@ class JavaLocalDateColumnType : ColumnType(), IDateColumnType {
         else -> LocalDate.parse(value.toString())
     }
 
-    override fun notNullValueToDB(value: Any) = when {
-        value is LocalDate -> java.sql.Date(value.millis)
+    override fun notNullValueToDB(value: Any) = when (value) {
+        is LocalDate -> java.sql.Date(value.millis)
         else -> value
     }
 
@@ -104,8 +106,10 @@ class JavaLocalDateTimeColumnType : ColumnType(), IDateColumnType {
             else -> error("Unexpected value: $value of ${value::class.qualifiedName}")
         }
 
-        return when (currentDialect) {
-            is SQLiteDialect, is OracleDialect -> "'${SQLITE_AND_ORACLE_DATE_TIME_STRING_FORMATTER.format(instant)}'"
+        val dialect = currentDialect
+        return when {
+            dialect is SQLiteDialect -> "'${SQLITE_AND_ORACLE_DATE_TIME_STRING_FORMATTER.format(instant)}'"
+            dialect is OracleDialect || dialect.h2Mode == H2Dialect.H2CompatibilityMode.Oracle -> "'${SQLITE_AND_ORACLE_DATE_TIME_STRING_FORMATTER.format(instant)}'"
             else -> "'${DEFAULT_DATE_TIME_STRING_FORMATTER.format(instant)}'"
         }
     }
@@ -153,7 +157,7 @@ class JavaLocalTimeColumnType : ColumnType(), IDateColumnType {
             else -> error("Unexpected value: $value of ${value::class.qualifiedName}")
         }
 
-        val formatter = if (currentDialect is OracleDialect) {
+        val formatter = if (currentDialect is OracleDialect || currentDialect.h2Mode == H2Dialect.H2CompatibilityMode.Oracle) {
             ORACLE_TIME_STRING_FORMATTER
         } else {
             DEFAULT_TIME_STRING_FORMATTER
@@ -168,7 +172,7 @@ class JavaLocalTimeColumnType : ColumnType(), IDateColumnType {
         is Int -> longToLocalTime(value.toLong())
         is Long -> longToLocalTime(value)
         is String -> {
-            val formatter = if (currentDialect is OracleDialect) {
+            val formatter = if (currentDialect is OracleDialect || currentDialect.h2Mode == H2Dialect.H2CompatibilityMode.Oracle) {
                 formatterForDateString(value)
             } else {
                 DEFAULT_TIME_STRING_FORMATTER
@@ -199,11 +203,13 @@ class JavaInstantColumnType : ColumnType(), IDateColumnType {
             is String -> return value
             is Instant -> value
             is java.sql.Timestamp -> value.toInstant()
+            is LocalDateTime -> value.atZone(ZoneId.systemDefault()).toInstant()
             else -> error("Unexpected value: $value of ${value::class.qualifiedName}")
         }
 
-        return when (currentDialect) {
-            is OracleDialect -> "'${SQLITE_AND_ORACLE_DATE_TIME_STRING_FORMATTER.format(instant)}'"
+        return when {
+            currentDialect is OracleDialect || currentDialect.h2Mode == H2Dialect.H2CompatibilityMode.Oracle ->
+                "'${SQLITE_AND_ORACLE_DATE_TIME_STRING_FORMATTER.format(instant)}'"
             else -> "'${DEFAULT_DATE_TIME_STRING_FORMATTER.format(instant)}'"
         }
     }

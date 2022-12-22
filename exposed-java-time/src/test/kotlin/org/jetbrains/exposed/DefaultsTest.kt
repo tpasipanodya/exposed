@@ -17,11 +17,16 @@ import org.jetbrains.exposed.sql.tests.shared.assertEqualCollections
 import org.jetbrains.exposed.sql.tests.shared.assertEqualLists
 import org.jetbrains.exposed.sql.tests.shared.assertEquals
 import org.jetbrains.exposed.sql.tests.shared.expectException
+import org.jetbrains.exposed.sql.vendors.H2Dialect
 import org.jetbrains.exposed.sql.vendors.MysqlDialect
 import org.jetbrains.exposed.sql.vendors.OracleDialect
 import org.jetbrains.exposed.sql.vendors.SQLServerDialect
+import org.jetbrains.exposed.sql.vendors.h2Mode
 import org.junit.Test
 import java.time.*
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 class DefaultsTest : DatabaseTestsBase() {
     object TableWithDBDefault : IntIdTable() {
@@ -34,7 +39,7 @@ class DefaultsTest : DatabaseTestsBase() {
     class DBDefault(id: EntityID<Int>) : IntEntity(id) {
         var field by TableWithDBDefault.field
         var t1 by TableWithDBDefault.t1
-        val clientDefault by TableWithDBDefault.clientDefault
+        var clientDefault by TableWithDBDefault.clientDefault
 
         override fun equals(other: Any?): Boolean {
             return (other as? DBDefault)?.let { id == it.id && field == it.field && equalDateTime(t1, it.t1) } ?: false
@@ -43,6 +48,32 @@ class DefaultsTest : DatabaseTestsBase() {
         override fun hashCode(): Int = id.value.hashCode()
 
         companion object : IntEntityClass<DBDefault>(TableWithDBDefault)
+    }
+
+    @Test
+    fun testCanUseClientDefaultOnNullableColumn() {
+        val defaultValue: Int? = null
+        val table = object : IntIdTable() {
+            val clientDefault = integer("clientDefault").nullable().clientDefault { defaultValue }
+        }
+        val returnedDefault = table.clientDefault.defaultValueFun?.invoke()
+
+        assertTrue(table.clientDefault.columnType.nullable, "Expected clientDefault columnType to be nullable")
+        assertNotNull(table.clientDefault.defaultValueFun, "Expected clientDefault column to have a default value fun, but was null")
+        assertEquals(defaultValue, returnedDefault, "Expected clientDefault to return $defaultValue, but was $returnedDefault")
+    }
+
+    @Test
+    fun testCanSetNullableColumnToUseClientDefault() {
+        val defaultValue = 123
+        val table = object : IntIdTable() {
+            val clientDefault = integer("clientDefault").clientDefault { defaultValue }.nullable()
+        }
+        val returnedDefault = table.clientDefault.defaultValueFun?.invoke()
+
+        assertTrue(table.clientDefault.columnType.nullable, "Expected clientDefault columnType to be nullable")
+        assertNotNull(table.clientDefault.defaultValueFun, "Expected clientDefault column to have a default value fun, but was null")
+        assertEquals(defaultValue, returnedDefault, "Expected clientDefault to return $defaultValue, but was $returnedDefault")
     }
 
     @Test
@@ -95,6 +126,23 @@ class DefaultsTest : DatabaseTestsBase() {
             assertEquals(0, db1.clientDefault)
             assertEquals(1, db2.clientDefault)
             assertEquals(2, TableWithDBDefault.cIndex)
+        }
+    }
+
+    @Test
+    fun testDefaultsCanBeOverridden() {
+        withTables(TableWithDBDefault) {
+            TableWithDBDefault.cIndex = 0
+            val db1 = DBDefault.new { field = "1" }
+            val db2 = DBDefault.new { field = "2" }
+            db1.clientDefault = 12345
+            flushCache()
+            assertEquals(12345, db1.clientDefault)
+            assertEquals(1, db2.clientDefault)
+            assertEquals(2, TableWithDBDefault.cIndex)
+
+            flushCache()
+            assertEquals(12345, db1.clientDefault)
         }
     }
 
@@ -192,12 +240,13 @@ class DefaultsTest : DatabaseTestsBase() {
             val dtType = currentDialectTest.dataTypeProvider.dateTimeType()
             val longType = currentDialectTest.dataTypeProvider.longType()
             val timeType = currentDialectTest.dataTypeProvider.timeType()
+            val varcharType = currentDialectTest.dataTypeProvider.varcharType(100)
             val q = db.identifierManager.quoteString
             val baseExpression = "CREATE TABLE " + addIfNotExistsIfSupported() +
                 "${"t".inProperCase()} (" +
                 "${"id".inProperCase()} ${currentDialectTest.dataTypeProvider.integerAutoincType()} PRIMARY KEY, " +
-                "${"s".inProperCase()} VARCHAR(100) DEFAULT 'test' NOT NULL, " +
-                "${"sn".inProperCase()} VARCHAR(100) DEFAULT 'testNullable' NULL, " +
+                "${"s".inProperCase()} $varcharType DEFAULT 'test' NOT NULL, " +
+                "${"sn".inProperCase()} $varcharType DEFAULT 'testNullable' NULL, " +
                 "${"l".inProperCase()} ${currentDialectTest.dataTypeProvider.longType()} DEFAULT 42 NOT NULL, " +
                 "$q${"c".inProperCase()}$q CHAR DEFAULT 'X' NOT NULL, " +
                 "${"t1".inProperCase()} $dtType ${currentDT.itOrNull()}, " +
@@ -212,7 +261,7 @@ class DefaultsTest : DatabaseTestsBase() {
                 "${"t10".inProperCase()} $timeType ${tLiteral.itOrNull()}" +
                 ")"
 
-            val expected = if (currentDialectTest is OracleDialect) {
+            val expected = if (currentDialectTest is OracleDialect || currentDialectTest.h2Mode == H2Dialect.H2CompatibilityMode.Oracle) {
                 arrayListOf("CREATE SEQUENCE t_id_seq START WITH 1 MINVALUE 1 MAXVALUE 9223372036854775807", baseExpression)
             } else {
                 arrayListOf(baseExpression)
@@ -240,7 +289,6 @@ class DefaultsTest : DatabaseTestsBase() {
 
     @Test
     fun testDefaultExpressions01() {
-
         fun abs(value: Int) = object : ExpressionWithColumnType<Int>() {
             override fun toQueryBuilder(queryBuilder: QueryBuilder) = queryBuilder { append("ABS($value)") }
 
@@ -250,6 +298,7 @@ class DefaultsTest : DatabaseTestsBase() {
         val foo = object : IntIdTable("foo") {
             val name = text("name")
             val defaultDateTime = datetime("defaultDateTime").defaultExpression(CurrentDateTime)
+            val defaultDate = date("defaultDate").defaultExpression(CurrentDate)
             val defaultInt = integer("defaultInteger").defaultExpression(abs(-100))
         }
 
@@ -260,6 +309,7 @@ class DefaultsTest : DatabaseTestsBase() {
             val result = foo.select { foo.id eq id }.single()
 
             assertEquals(today, result[foo.defaultDateTime].toLocalDate())
+            assertEquals(today, result[foo.defaultDate])
             assertEquals(100, result[foo.defaultInt])
         }
     }

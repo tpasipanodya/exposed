@@ -55,8 +55,18 @@ abstract class DataTypeProvider {
 
     // Character types
 
-    /** Character type for storing strings of variable and _unlimited_ length. */
+    /** Character type for storing strings of variable length up to a maximum. */
+    open fun varcharType(colLength: Int): String = "VARCHAR($colLength)"
+
+    /** Character type for storing strings of variable length.
+     * Some database (postgresql) use the same data type name to provide virtually _unlimited_ length. */
     open fun textType(): String = "TEXT"
+
+    /** Character type for storing strings of _medium_ length. */
+    open fun mediumTextType(): String = "TEXT"
+
+    /** Character type for storing strings of variable and _large_ length. */
+    open fun largeTextType(): String = "TEXT"
 
     // Binary data types
 
@@ -341,7 +351,7 @@ abstract class FunctionProvider {
     }
 
     // Commands
-
+    @Suppress("VariableNaming")
     open val DEFAULT_VALUE_EXPRESSION: String = "DEFAULT VALUES"
 
     /**
@@ -431,6 +441,26 @@ abstract class FunctionProvider {
         where: Op<Boolean>?,
         transaction: Transaction
     ): String = transaction.throwUnsupportedException("UPDATE with a join clause is unsupported")
+
+    protected fun QueryBuilder.appendJoinPartForUpdateClause(tableToUpdate: Table, targets: Join, transaction: Transaction) {
+        +" FROM "
+        val joinPartsToAppend = targets.joinParts.filter { it.joinPart != tableToUpdate }
+        if (targets.table != tableToUpdate) {
+            targets.table.describe(transaction, this)
+            if (joinPartsToAppend.isNotEmpty()) {
+                +", "
+            }
+        }
+
+        joinPartsToAppend.appendTo(this, ", ") {
+            it.joinPart.describe(transaction, this)
+        }
+
+        +" WHERE "
+        targets.joinParts.appendTo(this, " AND ") {
+            it.appendConditions(this)
+        }
+    }
 
     /**
      * Returns the SQL command that insert a new row into a table, but if another row with the same primary/unique key already exists then it updates the values of that row instead.
@@ -564,6 +594,8 @@ interface DatabaseDialect {
 
     val supportsOrderByNullsFirstLast: Boolean get() = false
 
+    val likePatternSpecialChars: Map<Char, Char?> get() = defaultLikePatternSpecialChars
+
     /** Returns the name of the current database. */
     fun getDatabase(): String
 
@@ -632,6 +664,75 @@ interface DatabaseDialect {
             append(" CASCADE")
         }
     }
+
+    companion object {
+        private val defaultLikePatternSpecialChars = mapOf('%' to null, '_' to null)
+    }
+}
+
+sealed class ForUpdateOption(open val querySuffix: String) {
+
+    internal object NoForUpdateOption : ForUpdateOption("") {
+        override val querySuffix: String get() = error("querySuffix should not be called for NoForUpdateOption object")
+    }
+
+    object ForUpdate : ForUpdateOption("FOR UPDATE")
+
+    // https://dev.mysql.com/doc/refman/8.0/en/innodb-locking-reads.html for clarification
+    object MySQL {
+        object ForShare : ForUpdateOption("FOR SHARE")
+
+        object LockInShareMode : ForUpdateOption("LOCK IN SHARE MODE")
+    }
+
+    // https://mariadb.com/kb/en/select/#lock-in-share-modefor-update
+    object MariaDB {
+        object LockInShareMode : ForUpdateOption("LOCK IN SHARE MODE")
+    }
+
+    // https://www.postgresql.org/docs/current/sql-select.html
+    // https://www.postgresql.org/docs/12/explicit-locking.html#LOCKING-ROWS for clarification
+    object PostgreSQL {
+        enum class MODE(val statement: String) {
+            NO_WAIT("NOWAIT"), SKIP_LOCKED("SKIP LOCKED")
+        }
+
+        abstract class ForUpdateBase(querySuffix: String, private val mode: MODE? = null, private vararg val ofTables: Table) : ForUpdateOption("") {
+            private val preparedQuerySuffix = buildString {
+                append(querySuffix)
+                ofTables.takeIf { it.isNotEmpty() }?.let { tables ->
+                    append(" OF ")
+                    tables.joinTo(this, separator = ",") { it.tableName }
+                }
+                mode?.let {
+                    append(" ${it.statement}")
+                }
+            }
+            final override val querySuffix: String = preparedQuerySuffix
+        }
+
+        class ForUpdate(mode: MODE? = null, vararg ofTables: Table) : ForUpdateBase("FOR UPDATE", mode, *ofTables)
+
+
+        open class ForNoKeyUpdate(mode: MODE? = null, vararg ofTables: Table) : ForUpdateBase("FOR NO KEY UPDATE", mode, *ofTables) {
+            companion object : ForNoKeyUpdate()
+        }
+
+        open class ForShare(mode: MODE? = null, vararg ofTables: Table) : ForUpdateBase("FOR SHARE", mode, *ofTables) {
+            companion object : ForShare()
+        }
+
+        open class ForKeyShare(mode: MODE? = null, vararg ofTables: Table) : ForUpdateBase("FOR KEY SHARE", mode, *ofTables) {
+            companion object : ForKeyShare()
+        }
+    }
+
+    // https://docs.oracle.com/cd/B19306_01/server.102/b14200/statements_10002.htm#i2066346
+    object Oracle {
+        object ForUpdateNoWait : ForUpdateOption("FOR UPDATE NOWAIT")
+
+        class ForUpdateWait(timeout: Int) : ForUpdateOption("FOR UPDATE WAIT $timeout")
+    }
 }
 
 /**
@@ -642,6 +743,8 @@ abstract class VendorDialect(
     override val dataTypeProvider: DataTypeProvider,
     override val functionProvider: FunctionProvider
 ) : DatabaseDialect {
+
+    abstract class DialectNameProvider(val dialectName: String)
 
     /* Cached values */
     private var _allTableNames: Map<String, List<String>>? = null

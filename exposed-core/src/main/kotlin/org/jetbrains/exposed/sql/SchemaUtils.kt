@@ -120,7 +120,7 @@ object SchemaUtils {
     @Deprecated(
         "Will be removed in upcoming releases. Please use overloaded version instead",
         ReplaceWith("createFKey(checkNotNull(reference.foreignKey) { \"${"$"}reference does not reference anything\" })"),
-        DeprecationLevel.WARNING
+        DeprecationLevel.ERROR
     )
     fun createFKey(reference: Column<*>): List<String> {
         val foreignKey = reference.foreignKey
@@ -143,30 +143,44 @@ object SchemaUtils {
     fun createIndex(index: Index) = index.createStatement()
 
     @Suppress("NestedBlockDepth", "ComplexMethod")
-    private fun DataTypeProvider.dbDefaultToString(exp: Expression<*>): String {
+    private fun DataTypeProvider.dbDefaultToString(column: Column<*>, exp: Expression<*>): String {
         return when (exp) {
-            is LiteralOp<*> -> when (exp.value) {
-                is Boolean -> when (currentDialect) {
-                    is MysqlDialect -> if (exp.value) "1" else "0"
-                    is PostgreSQLDialect -> exp.value.toString()
-                    else -> booleanToStatementString(exp.value)
-                }
-                is String -> when (currentDialect) {
-                    is PostgreSQLDialect -> "${exp.value}'::character varying"
-                    else -> exp.value
-                }
-                is Enum<*> -> when (exp.columnType) {
-                    is EnumerationNameColumnType<*> -> when (currentDialect) {
-                        is PostgreSQLDialect -> "${exp.value.name}'::character varying"
-                        else -> exp.value.name
+            is LiteralOp<*> -> {
+                val dialect = currentDialect
+                when (val value = exp.value) {
+                    is Boolean -> when (dialect) {
+                        is MysqlDialect -> if (value) "1" else "0"
+                        is PostgreSQLDialect -> value.toString()
+                        else -> booleanToStatementString(value)
+                    }
+                    is String -> when {
+                        dialect is PostgreSQLDialect ->
+                            when(column.columnType) {
+                                is VarCharColumnType -> "'${value}'::character varying"
+                                is TextColumnType -> "'${value}'::text"
+                                else -> processForDefaultValue(exp)
+                            }
+                        dialect is OracleDialect || dialect.h2Mode == H2Dialect.H2CompatibilityMode.Oracle ->
+                            when {
+                                column.columnType is VarCharColumnType && value == "" -> "NULL"
+                                column.columnType is TextColumnType && value == "" -> "NULL"
+                                else -> value
+                            }
+                        else -> value
+                    }
+                    is Enum<*> -> when (exp.columnType) {
+                        is EnumerationNameColumnType<*> -> when (dialect) {
+                            is PostgreSQLDialect -> "'${value.name}'::character varying"
+                            else -> value.name
+                        }
+                        else -> processForDefaultValue(exp)
+                    }
+                    is BigDecimal -> when (dialect) {
+                        is MysqlDialect -> value.setScale((exp.columnType as DecimalColumnType).scale).toString()
+                        else -> processForDefaultValue(exp)
                     }
                     else -> processForDefaultValue(exp)
                 }
-                is BigDecimal -> when (currentDialect) {
-                    is MysqlDialect -> exp.value.setScale((exp.columnType as DecimalColumnType).scale).toString()
-                    else -> processForDefaultValue(exp)
-                }
-                else -> processForDefaultValue(exp)
             }
             else -> processForDefaultValue(exp)
         }
@@ -206,9 +220,10 @@ object SchemaUtils {
                     .mapValues { (col, existingCol) ->
                         val columnType = col.columnType
                         val incorrectNullability = existingCol.nullable != columnType.nullable
-                        val incorrectAutoInc = existingCol.autoIncrement != columnType.isAutoInc
+                        // Exposed doesn't support changing sequences on columns
+                        val incorrectAutoInc = existingCol.autoIncrement != columnType.isAutoInc && col.autoIncColumnType?.autoincSeq == null
                         val incorrectDefaults =
-                            existingCol.defaultDbValue != col.dbDefaultValue?.let { dataTypeProvider.dbDefaultToString(it) }
+                            existingCol.defaultDbValue != col.dbDefaultValue?.let { dataTypeProvider.dbDefaultToString(col, it) }
                         val incorrectCaseSensitiveName = existingCol.name.inProperCase() != col.nameInDatabaseCase()
                         ColumnDiff(incorrectNullability, incorrectAutoInc, incorrectDefaults, incorrectCaseSensitiveName)
                     }

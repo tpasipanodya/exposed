@@ -4,8 +4,11 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
 import org.jetbrains.exposed.sql.tests.currentDialectTest
 import org.jetbrains.exposed.sql.tests.shared.assertEqualLists
+import org.jetbrains.exposed.sql.vendors.H2Dialect
+import org.jetbrains.exposed.sql.vendors.H2Dialect.H2CompatibilityMode
 import org.jetbrains.exposed.sql.vendors.OracleDialect
 import org.jetbrains.exposed.sql.vendors.PostgreSQLDialect
+import org.jetbrains.exposed.sql.vendors.h2Mode
 import org.junit.Test
 
 class OrderByTests : DatabaseTestsBase() {
@@ -41,6 +44,7 @@ class OrderByTests : DatabaseTestsBase() {
 
     private fun isNullFirst() = when (currentDialectTest) {
         is OracleDialect, is PostgreSQLDialect -> true
+        is H2Dialect -> currentDialectTest.h2Mode in listOf(H2CompatibilityMode.PostgreSQL, H2CompatibilityMode.Oracle)
         else -> false
     }
 

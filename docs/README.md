@@ -1,17 +1,20 @@
-<img src="./logo.png" alt="Exposed" width="315" />
+<div align="center">
+<img  align="center" src="./logo.png" alt="Exposed" width="315" /></div>
+<br><br>
 
 ![Build](https://github.com/tpasipanodya/exposed/actions/workflows/.github/workflows/cicd.yml/badge.svg)
 
 [![GitHub License](https://img.shields.io/badge/license-Apache%20License%202.0-blue.svg?style=flat)](https://www.apache.org/licenses/LICENSE-2.0)
+
 
 Welcome to **Exposed**; a fork of the [Kotlin ORM framework](https://github.com/JetBrains/Exposed).
 In terms of behavior, this fork is identical to the main [Exposed](https://github.com/JetBrains/Exposed)
 library with the exception that it allows configuring default filters (query operators) on tables. Default filters can
 be useful for implementing multi-tenancy & soft deletes.
 
+
 ## Supported Databases
 Visit [the official Exposed page](https://github.com/JetBrains/Exposed) for an updated list.
-
 
 ## Getting started
 
@@ -119,4 +122,4 @@ Feel free to submit issues and requests via Github.
 
 ## License
 
-Apache License, Version 2.0, ([LICENSE](/LICENSE.txt) or https://www.apache.org/licenses/LICENSE-2.0)
+By contributing to the Open Sauced project, you agree that your contributions will be licensed under [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).

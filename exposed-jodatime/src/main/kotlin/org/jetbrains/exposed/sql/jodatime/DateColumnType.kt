@@ -42,28 +42,37 @@ class DateColumnType(val time: Boolean) : ColumnType(), IDateColumnType {
             else -> error("Unexpected value: $value of ${value::class.qualifiedName}")
         }
 
-        return if (time)
+        return if (time) {
             "'${DEFAULT_DATE_TIME_STRING_FORMATTER.print(dateTime.toDateTime(DateTimeZone.getDefault()))}'"
-        else
+        } else {
             "'${DEFAULT_DATE_STRING_FORMATTER.print(dateTime)}'"
+        }
     }
 
-    override fun valueFromDB(value: Any): Any = when (value) {
-        is DateTime -> value
-        is java.sql.Date -> DateTime(value.time)
-        is java.sql.Timestamp -> DateTime(value.time)
-        is Int -> DateTime(value.toLong())
-        is Long -> DateTime(value)
-        is String -> when {
-            time -> DateTime.parse(value, formatterForDateTimeString(value))
-            currentDialect is SQLiteDialect -> SQLITE_DATE_STRING_FORMATTER.parseDateTime(value)
-            else -> DEFAULT_DATE_STRING_FORMATTER.parseDateTime(value)
+    override fun valueFromDB(value: Any): Any {
+        val dateTime = when (value) {
+            is DateTime -> value
+            is java.sql.Date -> DateTime(value.time)
+            is java.sql.Timestamp -> DateTime(value.time)
+            is Int -> DateTime(value.toLong())
+            is Long -> DateTime(value)
+            is String -> when {
+                time -> DateTime.parse(value, formatterForDateTimeString(value))
+                currentDialect is SQLiteDialect -> SQLITE_DATE_STRING_FORMATTER.parseDateTime(value)
+                else -> DEFAULT_DATE_STRING_FORMATTER.parseDateTime(value)
+            }
+
+            else -> {
+                if (localDateTimeClass == value.javaClass) {
+                    DateTime.parse(value.toString())
+                } else {
+                    valueFromDB(value.toString()) as DateTime
+                }
+            }
         }
-        else -> {
-            if (localDateTimeClass == value.javaClass)
-                DateTime.parse(value.toString())
-            else
-                valueFromDB(value.toString())
+        return when (time) {
+            true -> dateTime
+            false -> dateTime.withTimeAtStartOfDay()
         }
     }
 

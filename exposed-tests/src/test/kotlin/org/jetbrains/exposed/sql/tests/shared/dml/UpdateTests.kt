@@ -20,7 +20,7 @@ import kotlin.test.assertNotEquals
 
 class UpdateTests : DatabaseTestsBase() {
     private val notSupportLimit by lazy {
-        val exclude = arrayListOf(TestDB.POSTGRESQL, TestDB.POSTGRESQLNG)
+        val exclude = arrayListOf(TestDB.POSTGRESQL, TestDB.POSTGRESQLNG, TestDB.H2_PSQL)
         if (!SQLiteDialect.ENABLE_UPDATE_DELETE_LIMIT) {
             exclude.add(TestDB.SQLITE)
         }
@@ -213,8 +213,16 @@ class UpdateTests : DatabaseTestsBase() {
     }
 
     @Test
-    fun testUpdateWithJoin() {
+    fun testUpdateWithJoin01() {
         val dialects = listOf(TestDB.SQLITE)
+
+        withCitiesAndUsers(exclude = listOf(TestDB.SQLITE)) {
+            val join = users.innerJoin(userData)
+            join.update {
+                it[userData.comment] = users.name
+                it[userData.value] = 123
+            }
+        }
 
         withCitiesAndUsers(dialects) {
             users.innerJoin(userData)
@@ -317,6 +325,22 @@ class UpdateTests : DatabaseTestsBase() {
                             assertNotEquals(123, row[scopedUserData.value])
                         }
                 }
+            }
+        }
+    }
+
+    @Test
+    fun testUpdateWithJoin02() {
+        withCitiesAndUsers(exclude = TestDB.allH2TestDB + TestDB.SQLITE) {
+            val join = cities.innerJoin(users).innerJoin(userData)
+            join.update {
+                it[userData.comment] = users.name
+                it[userData.value] = 123
+            }
+
+            join.selectAll().forEach {
+                assertEquals(it[users.name], it[userData.comment])
+                assertEquals(123, it[userData.value])
             }
         }
     }
