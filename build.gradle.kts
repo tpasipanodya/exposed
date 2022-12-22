@@ -10,7 +10,7 @@ plugins {
     kotlin("jvm") apply true
     id("org.jetbrains.dokka") version "1.7.0"
     id("com.jfrog.artifactory") version "4.28.3"
-    id("io.gitlab.arturbosch.detekt")
+//    id("io.gitlab.arturbosch.detekt")
     id ("java")
     id("maven-publish")
     idea

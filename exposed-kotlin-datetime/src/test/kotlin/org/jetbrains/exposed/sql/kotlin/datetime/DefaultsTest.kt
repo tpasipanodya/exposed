@@ -1,7 +1,6 @@
 @file:OptIn(ExperimentalTime::class)
 package org.jetbrains.exposed.sql.kotlin.datetime
 
-import java.time.LocalTime
 import kotlinx.datetime.*
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
@@ -220,7 +219,7 @@ class DefaultsTest : DatabaseTestsBase() {
         val tsLiteral = timestampLiteral(tsConstValue)
         val durConstValue = Duration.milliseconds(tsConstValue.toEpochMilliseconds())
         val durLiteral = durationLiteral(durConstValue)
-        val tmConstValue = LocalTime.of(12, 0)
+        val tmConstValue = LocalTime(12, 0)
         val tLiteral = timeLiteral(tmConstValue)
 
         val TestTable = object : IntIdTable("t") {
