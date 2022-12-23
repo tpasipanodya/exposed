@@ -1323,24 +1323,23 @@ fun Misc.checkRowDates(
     dr: Duration,
     drn: Duration? = null
 ) {
-    assertTemporalsEqual(d.toJavaLocalDate(), row[this.d].toJavaLocalDate())
-    assertTemporalsEqual(dn?.toJavaLocalDate(), row[this.dn]?.toJavaLocalDate())
-    assertTemporalsEqual(t.toJavaLocalTime(), row[this.t].toJavaLocalTime())
-    assertTemporalsEqual(tn?.toJavaLocalTime(), row[this.tn]?.toJavaLocalTime())
-    assertTemporalsEqual(dt.toJavaLocalDateTime(), row[this.dt].toJavaLocalDateTime())
-    assertTemporalsEqual(dtn?.toJavaLocalDateTime(), row[this.dtn]?.toJavaLocalDateTime())
-    assertTemporalsEqual(ts.toJavaInstant(), row[this.ts].toJavaInstant())
-    assertTemporalsEqual(tsn?.toJavaInstant(), row[this.tsn]?.toJavaInstant())
+    assertTemporalsEqual(d.toJavaLocalDate(), row[this.d].toJavaLocalDate(), ChronoUnit.DAYS)
+    assertTemporalsEqual(dn?.toJavaLocalDate(), row[this.dn]?.toJavaLocalDate(), ChronoUnit.DAYS)
+    assertTemporalsEqual(t.toJavaLocalTime(), row[this.t].toJavaLocalTime(), ChronoUnit.MILLIS)
+    assertTemporalsEqual(tn?.toJavaLocalTime(), row[this.tn]?.toJavaLocalTime(), ChronoUnit.MILLIS)
+    assertTemporalsEqual(dt.toJavaLocalDateTime(), row[this.dt].toJavaLocalDateTime(), ChronoUnit.MILLIS)
+    assertTemporalsEqual(dtn?.toJavaLocalDateTime(), row[this.dtn]?.toJavaLocalDateTime(), ChronoUnit.MILLIS)
+    assertTemporalsEqual(ts.toJavaInstant(), row[this.ts].toJavaInstant(), ChronoUnit.MILLIS)
+    assertTemporalsEqual(tsn?.toJavaInstant(), row[this.tsn]?.toJavaInstant(), ChronoUnit.MILLIS)
     assertEquals(dr, row[this.dr])
     assertEquals(drn, row[this.drn])
 }
 
-fun assertTemporalsEqual(t1: Temporal?, t2: Temporal?) =
+fun assertTemporalsEqual(t1: Temporal?, t2: Temporal?, unit: ChronoUnit) =
     t1?.let { safeT1 ->
         t2?.let { safeT2 ->
-            assertTrue(ChronoUnit.MILLIS.between(safeT1, t2) < 1)
+            assertTrue(unit.between(safeT1, t2) < 1)
         } ?: error("Expected: $t1, actual: $t2")
-
     } ?: if (t2 != null) {
         error("Expected: $t1, actual: $t2")
     }  else { }

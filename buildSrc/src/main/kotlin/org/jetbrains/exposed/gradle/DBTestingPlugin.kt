@@ -36,16 +36,16 @@ class DBTestingPlugin : Plugin<Project> {
                 testRuntimeOnly("org.xerial", "sqlite-jdbc", Versions.sqlLite3)
             }
 
-            val mysql51 = register<DBTestWithDockerCompose>("mysql51Test", Parameters("MYSQL", 3306)) {
-                testRuntimeOnly("mysql", "mysql-connector-java", Versions.mysql51)
-            }
-            val mysql80 = register<DBTestWithDockerCompose>("mysql80Test", Parameters("MYSQL", 3306, "mysql8")) {
-                testRuntimeOnly("mysql", "mysql-connector-java", Versions.mysql80)
-            }
-            val mysql = register<Test>("mysqlTest") {
-                group = "verification"
-                delegatedTo(mysql51, mysql80)
-            }
+//            val mysql51 = register<DBTestWithDockerCompose>("mysql51Test", Parameters("MYSQL", 3306)) {
+//                testRuntimeOnly("mysql", "mysql-connector-java", Versions.mysql51)
+//            }
+//            val mysql80 = register<DBTestWithDockerCompose>("mysql80Test", Parameters("MYSQL", 3306, "mysql8")) {
+//                testRuntimeOnly("mysql", "mysql-connector-java", Versions.mysql80)
+//            }
+//            val mysql = register<Test>("mysqlTest") {
+//                group = "verification"
+//                delegatedTo(mysql51, mysql80)
+//            }
 
             val postgres = register<DBTest>("postgresTest", "POSTGRESQL") {
                 testRuntimeOnly("org.postgresql", "postgresql", Versions.postgre)
@@ -80,7 +80,7 @@ class DBTestingPlugin : Plugin<Project> {
                 delegatedTo(
                     h2,
                     sqlite,
-                    mysql51,
+//                    mysql51,
                     postgres,
                     postgresNG
                 )
