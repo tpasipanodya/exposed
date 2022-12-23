@@ -9,10 +9,8 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.transactions.transactionManager
 import org.junit.Assume
 import org.junit.AssumptionViolatedException
-import org.testcontainers.containers.MySQLContainer
 import java.sql.Connection
 import java.sql.SQLException
-import java.time.Duration
 import java.util.*
 import kotlin.concurrent.thread
 import kotlin.reflect.KMutableProperty1
@@ -46,24 +44,9 @@ enum class TestDB(
     H2_ORACLE({ "jdbc:h2:mem:oracle;MODE=Oracle;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1" }, "org.h2.Driver"),
     H2_SQLSERVER({ "jdbc:h2:mem:sqlserver;MODE=MSSQLServer;DB_CLOSE_DELAY=-1" }, "org.h2.Driver"),
     SQLITE({ "jdbc:sqlite:file:test?mode=memory&cache=shared" }, "org.sqlite.JDBC"),
-    MYSQL(
-        connection = {
-            if (runTestContainersMySQL()) {
-                "${mySQLProcess.jdbcUrl}?createDatabaseIfNotExist=true&characterEncoding=UTF-8&useSSL=false&zeroDateTimeBehavior=convertToNull"
-            } else {
-                val host = System.getProperty("exposed.test.mysql.host") ?: System.getProperty("exposed.test.mysql8.host")
-                val port = System.getProperty("exposed.test.mysql.port") ?: System.getProperty("exposed.test.mysql8.port")
-                host.let { dockerHost ->
-                    "jdbc:mysql://$dockerHost:$port/testdb?useSSL=false&characterEncoding=UTF-8&zeroDateTimeBehavior=convertToNull"
-                }
-            }
-        },
-        user = "root",
-        pass = if (runTestContainersMySQL()) "test" else "",
-        driver = "com.mysql.jdbc.Driver",
-        beforeConnection = { if (runTestContainersMySQL()) mySQLProcess },
-        afterTestFinished = { if (runTestContainersMySQL()) mySQLProcess.close() }
-    ),
+    MYSQL({
+        "jdbc:mysql://localhost:3306/exposed_template1?user=exposed_template1&password=exposed_template1&createDatabaseIfNotExist=true&useSSL=false&characterEncoding=UTF-8&zeroDateTimeBehavior=convertToNull"
+          }, "com.mysql.jdbc.Driver"),
     POSTGRESQL(
         { "jdbc:postgresql://localhost:5432/exposed_template1?user=exposed_template1&password=exposed_template1&lc_messages=en_US.UTF-8" }, "org.postgresql.Driver",
         user = "exposed_template1", pass = "exposed_template1"
@@ -132,17 +115,6 @@ enum class TestDB(
 }
 
 private val registeredOnShutdown = HashSet<TestDB>()
-
-private val mySQLProcess by lazy {
-    MySQLContainer("mysql:5")
-        .withDatabaseName("testdb")
-        .withEnv("MYSQL_ROOT_PASSWORD", "test")
-        .withExposedPorts()
-        .apply { start() }
-}
-
-private fun runTestContainersMySQL(): Boolean =
-    (System.getProperty("exposed.test.mysql.host") ?: System.getProperty("exposed.test.mysql8.host")).isNullOrBlank()
 
 internal var currentTestDB by nullableTransactionScope<TestDB>()
 
