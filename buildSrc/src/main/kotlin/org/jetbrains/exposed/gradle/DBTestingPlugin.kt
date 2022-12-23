@@ -80,7 +80,7 @@ class DBTestingPlugin : Plugin<Project> {
                 delegatedTo(
                     h2,
                     sqlite,
-                    mysql51,
+//                    mysql51,
                     postgres,
                     postgresNG
                 )
