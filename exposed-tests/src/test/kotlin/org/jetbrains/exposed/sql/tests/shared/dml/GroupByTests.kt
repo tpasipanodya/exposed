@@ -447,7 +447,7 @@ class GroupByTests : DatabaseTestsBase() {
                 ) { assertEquals(1, it.size) }
 
             scopedUsers.name
-                .groupConcat(separator = ", ")
+                .groupConcat(separator = ", ", orderBy = scopedUsers.name to SortOrder.DESC)
                 .checkExcept(OracleDialect) {
                     assertEquals(1, it.size)
                     when (currentDialectTest) {
@@ -459,7 +459,7 @@ class GroupByTests : DatabaseTestsBase() {
             }
 
             scopedUsers.name
-                .groupConcat(separator = " | ", distinct = true)
+                .groupConcat(separator = " | ", distinct = true, orderBy = scopedUsers.name to SortOrder.ASC)
                 .checkExcept(OracleDialect) {
                     assertEquals(1, it.size)
                     when (currentDialectTest) {
