@@ -57,10 +57,23 @@ class DefaultsTest : DatabaseTestsBase() {
         override fun equals(other: Any?) = (other as? DBDefault)?.let { safeOther ->
             id == safeOther.id &&
             field == safeOther.field &&
-            ChronoUnit.MILLIS.between(
-                t1.toJavaLocalDateTime(),
-                safeOther.t1!!.toJavaLocalDateTime()
-            ) < 1
+                    (t1?.let { safeT1 ->
+                safeOther.t1?.let { safeOtherT1 ->
+                    ChronoUnit.MILLIS.between(
+                        safeT1.toJavaLocalDateTime(),
+                        safeOtherT1.toJavaLocalDateTime()
+                    ) < 1
+                } ?: false
+            } ?: safeOther.t1 == null) &&
+
+            t2?.let { safeT2 ->
+                safeOther.t2?.let { safeOtherT2 ->
+                    ChronoUnit.DAYS.between(
+                        safeT2.toJavaLocalDate(),
+                        safeOtherT2.toJavaLocalDate()
+                    ) < 1
+                } ?: false
+            } ?: safeOther.t1 == null
         } ?: false
 
         override fun hashCode(): Int = id.value.hashCode()
