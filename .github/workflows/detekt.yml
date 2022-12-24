@@ -7,6 +7,7 @@ jobs:
       - name: "checkout"
         uses: actions/checkout@v3
       - name: "detekt"
-        uses: natiginfo/action-detekt-all@v1
+        uses: alaegin/Detekt-Action@v1.22.0-RC3
         with:
-          args: --config detekt.yml
+          github_token: ${{ secrets.github_token }}
+          detekt_config: detekt-config.yml
