@@ -23,6 +23,7 @@ import kotlinx.datetime.toJavaInstant
 import kotlinx.datetime.toJavaLocalDate
 import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.datetime.toJavaLocalTime
+import kotlinx.datetime.toKotlinLocalDateTime
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -455,7 +456,10 @@ class MiscTableTest : DatabaseTestsBase() {
             )
 
             tbl.checkRowFull(
-                tbl.select { tbl.dt.eq(dateTime) }.single(),
+                tbl.select {
+                    tbl.dt.greater(dateTime.toJavaLocalDateTime().minusMinutes(1).toKotlinLocalDateTime())
+                        .and(tbl.dt.less(dateTime.toJavaLocalDateTime().plusMinutes(1).toKotlinLocalDateTime()))
+                }.single(),
                 by = 13,
                 byn = null,
                 sm = -10,
@@ -877,7 +881,10 @@ class MiscTableTest : DatabaseTestsBase() {
             )
 
             tbl.checkRowFull(
-                tbl.select { tbl.dt.eq(dateTime) }.single(),
+                tbl.select {
+                    tbl.dt.greater(dateTime.toJavaLocalDateTime().minusMinutes(1).toKotlinLocalDateTime())
+                    .and(tbl.dt.less(dateTime.toJavaLocalDateTime().plusMinutes(1).toKotlinLocalDateTime()))
+                }.single(),
                 by = 13,
                 byn = 13,
                 sm = -10,
