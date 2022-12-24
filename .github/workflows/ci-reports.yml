@@ -25,7 +25,7 @@ jobs:
         uses: dorny/test-reporter@v1
         with:
           artifact: Test Artifacts
-          name: Postgres Test Results
+          name: MySQL Test Results
           path: mysql51Test/*.xml
           reporter: java-junit
       - name: Upload SQL lite Test Results
