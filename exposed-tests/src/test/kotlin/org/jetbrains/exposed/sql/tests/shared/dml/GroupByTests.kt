@@ -452,7 +452,7 @@ class GroupByTests : DatabaseTestsBase() {
                     assertEquals(1, it.size)
                     when (currentDialectTest) {
                         is MariaDBDialect -> assertEquals(true, it["Munich"] in listOf("Sergey, Eugene", "Eugene, Sergey"))
-                        is MysqlDialect, is SQLServerDialect -> assertEquals("Eugene, Sergey", it["Munich"])
+                        is SQLServerDialect -> assertEquals("Eugene, Sergey", it["Munich"])
                         else -> assertEquals("Sergey, Eugene", it["Munich"])
                     }
                 assertNull(it["Prague"])
