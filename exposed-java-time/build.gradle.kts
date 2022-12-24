@@ -18,11 +18,6 @@ dependencies {
     testImplementation(kotlin("test-junit"))
 }
 
-//tasks.withType<Detekt>().configureEach {
-//    // Target version of the generated JVM bytecode. It is used for type resolution.
-//    jvmTarget = "1.8"
-//}
-
 tasks.withType<Test>().configureEach {
     testLogging {
         events.addAll(listOf(TestLogEvent.PASSED, TestLogEvent.FAILED, TestLogEvent.SKIPPED))
