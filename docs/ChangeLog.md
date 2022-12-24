@@ -2,7 +2,7 @@
 
 * `jdk` version `18`
 * `jvm` version `1.7.22`
-* 
+* Pegged against [`org.jetbrains.exposed` version `0.41.1`](https://github.com/JetBrains/Exposed/blob/master/docs/ChangeLog.md#0411)
 
 # 0.7.0
 
