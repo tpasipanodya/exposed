@@ -67,22 +67,14 @@ class DefaultsTest : DatabaseTestsBase() {
     fun dbDefaultEquals(item1: DBDefault, item2: DBDefault) =
         item1.id == item2.id &&
         item1.field == item2.field &&
-        (item1.t1?.let { safeT1 ->
-            item2.t1?.let { safeOtherT1 ->
-                ChronoUnit.MILLIS.between(
-                    safeT1.toJavaLocalDateTime(),
-                    safeOtherT1.toJavaLocalDateTime()
-                ) < 1
-            } ?: false
-        } ?: item2.t1 == null) &&
-        (item1.t2?.let { safeT2 ->
-            item2.t2?.let { safeOtherT2 ->
-                ChronoUnit.DAYS.between(
-                    safeT2.toJavaLocalDate(),
-                    safeOtherT2.toJavaLocalDate()
-                ) < 1
-            } ?: false
-        } ?: item2.t1 == null)
+        ChronoUnit.MILLIS.between(
+            item1.t1.toJavaLocalDateTime(),
+            item2.t1.toJavaLocalDateTime()
+        ) < 1 &&
+        ChronoUnit.DAYS.between(
+            item1.t2.toJavaLocalDate(),
+            item2.t2.toJavaLocalDate()
+        ) < 1
 
     @Test
     fun testCanUseClientDefaultOnNullableColumn() {
