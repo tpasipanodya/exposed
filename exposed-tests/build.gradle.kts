@@ -25,7 +25,7 @@ dependencies {
     implementation("junit", "junit", "4.12")
     implementation("org.hamcrest", "hamcrest-library", "1.3")
     implementation("org.jetbrains.kotlinx", "kotlinx-coroutines-debug", Versions.kotlinCoroutines)
-//    implementation("org.testcontainers", "mysql", Versions.testContainers)
+    implementation("org.testcontainers", "mysql", Versions.testContainers)
     testCompileOnly("org.postgresql", "postgresql", Versions.postgre)
     testCompileOnly("com.impossibl.pgjdbc-ng", "pgjdbc-ng", Versions.postgreNG)
     compileOnly("com.h2database", "h2", Versions.h2)
