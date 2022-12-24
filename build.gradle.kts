@@ -1,16 +1,17 @@
-//import io.gitlab.arturbosch.detekt.Detekt
-//import io.gitlab.arturbosch.detekt.report.ReportMergeTask
+import io.gitlab.arturbosch.detekt.Detekt
+import io.gitlab.arturbosch.detekt.report.ReportMergeTask
 import org.jfrog.gradle.plugin.artifactory.dsl.PublisherConfig
 import groovy.lang.GroovyObject
 import org.jetbrains.exposed.gradle.isReleaseBuild
 import org.jetbrains.exposed.gradle.setPomMetadata
 import org.jfrog.gradle.plugin.artifactory.dsl.ResolverConfig
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 plugins {
     kotlin("jvm") apply true
     id("org.jetbrains.dokka") version "1.7.0"
     id("com.jfrog.artifactory") version "4.28.3"
-//    id("io.gitlab.arturbosch.detekt")
+    id("io.gitlab.arturbosch.detekt")
     id ("java")
     id("maven-publish")
     idea
@@ -57,9 +58,9 @@ allprojects {
     }
 }
 
-//val reportMerge by tasks.registering(ReportMergeTask::class) {
-//    output.set(rootProject.buildDir.resolve("reports/detekt/exposed.xml"))
-//}
+val reportMerge by tasks.registering(ReportMergeTask::class) {
+    output.set(rootProject.buildDir.resolve("reports/detekt/exposed.xml"))
+}
 
 artifactory {
     setContextUrl("https://tmpasipanodya.jfrog.io/artifactory/")
@@ -84,13 +85,20 @@ artifactory {
 
 subprojects {
     dependencies {
-//        detektPlugins("io.gitlab.arturbosch.detekt", "detekt-formatting", "1.21.0")
+        detektPlugins("io.gitlab.arturbosch.detekt", "detekt-formatting", "1.21.0")
     }
-//    tasks.withType<Detekt>().configureEach detekt@{
-//        enabled = this@subprojects.name !== "exposed-tests"
-//        finalizedBy(reportMerge)
-//        reportMerge.configure {
-//            input.from(this@detekt.xmlReportFile)
-//        }
-//    }
+    tasks.withType<Detekt>().configureEach detekt@{
+        enabled = this@subprojects.name !== "exposed-tests"
+        finalizedBy(reportMerge)
+        reportMerge.configure {
+            input.from(this@detekt.xmlReportFile)
+        }
+    }
+    tasks.withType<KotlinJvmCompile>().configureEach {
+        kotlinOptions {
+            jvmTarget = "18"
+            apiVersion = "1.7"
+            languageVersion = "1.7"
+        }
+    }
 }
