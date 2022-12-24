@@ -1,6 +1,7 @@
 @file:OptIn(ExperimentalTime::class)
 package org.jetbrains.exposed.sql.kotlin.datetime
 
+import java.time.temporal.ChronoUnit
 import kotlinx.datetime.*
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
@@ -53,9 +54,14 @@ class DefaultsTest : DatabaseTestsBase() {
         var t2 by TableWithDBDefault.t2
         val clientDefault by TableWithDBDefault.clientDefault
 
-        override fun equals(other: Any?): Boolean {
-            return (other as? DBDefault)?.let { id == it.id && field == it.field && t1 == it.t1 && t2 == it.t2 } ?: false
-        }
+        override fun equals(other: Any?) = (other as? DBDefault)?.let { safeOther ->
+            id == safeOther.id &&
+            field == safeOther.field &&
+            ChronoUnit.MILLIS.between(
+                t1.toJavaLocalDateTime(),
+                safeOther.t1!!.toJavaLocalDateTime()
+            ) < 1
+        } ?: false
 
         override fun hashCode(): Int = id.value.hashCode()
 
