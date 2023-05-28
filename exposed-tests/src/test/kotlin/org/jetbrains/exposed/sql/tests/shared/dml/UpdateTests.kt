@@ -346,6 +346,44 @@ class UpdateTests : DatabaseTestsBase() {
     }
 
     @Test
+    fun testUpdateWithJoinAndWhere() {
+        val tableA = object : LongIdTable("test_table_a") {
+            val foo = varchar("foo", 255)
+        }
+        val tableB = object : LongIdTable("test_table_b") {
+            val bar = varchar("bar", 255)
+            val tableAId = reference("table_a_id", tableA)
+        }
+
+        val supportWhere = TestDB.values().toList() - TestDB.allH2TestDB - TestDB.SQLITE + TestDB.H2_ORACLE
+
+        withTables(tableA, tableB) { testingDb ->
+            val aId = tableA.insertAndGetId { it[foo] = "foo" }
+            tableB.insert {
+                it[bar] = "zip"
+                it[tableAId] = aId
+            }
+
+            val join = tableA.innerJoin(tableB)
+
+            if (testingDb in supportWhere) {
+                join.update({ tableA.foo eq "foo" }) {
+                    it[tableB.bar] = "baz"
+                }
+                join.selectAll().single().also {
+                    assertEquals("baz", it[tableB.bar])
+                }
+            } else {
+                expectException<UnsupportedByDialectException> {
+                    join.update({ tableA.foo eq "foo" }) {
+                        it[tableB.bar] = "baz"
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
     fun `test that column length checked in update `() {
         val stringTable = object : IntIdTable("StringTable") {
             val name = varchar("name", 10)

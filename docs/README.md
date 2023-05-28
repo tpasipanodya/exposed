@@ -16,7 +16,17 @@ be useful for implementing multi-tenancy & soft deletes.
 ## Supported Databases
 Visit [the official Exposed page](https://github.com/JetBrains/Exposed) for an updated list.
 
+<<<<<<< HEAD
 ## Getting started
+=======
+-   ![Postgres](https://img.shields.io/badge/postgres-%23316192.svg?style=for-the-badge&logo=postgresql&logoColor=white) (Also, PostgreSQL using the [pgjdbc-ng](https://github.com/impossibl/pgjdbc-ng) JDBC driver)
+-   ![MySQL](https://img.shields.io/badge/mysql-%2300f.svg?style=for-the-badge&logo=mysql&logoColor=white)
+-   ![MariaDB](https://img.shields.io/badge/MariaDB-003545?style=for-the-badge&logo=mariadb&logoColor=white)
+-   ![SQLite](https://img.shields.io/badge/sqlite-%2307405e.svg?style=for-the-badge&logo=sqlite&logoColor=white)
+-   H2 (versions 2.x; 1.x version is deprecated and will be removed in future releases)
+-   [Oracle](ORACLE.md)
+-   [SQL Server](SQLServer.md)
+>>>>>>> upstream/master
 
 ```kotlin
 val exposedVersion: String by project
@@ -55,7 +65,7 @@ fun main() {
     Database.connect(db_url)
     transaction {
         SchemaUtils.create(users, posts)
-
+        
         val user1Id = users.insert { it[name] = "User 1" }[users.id]
         val user2Id = users.insert { it[name] = "User 2" }[users.id]
 
@@ -81,7 +91,7 @@ fun main() {
         
         println(retrievedText == "lorem ipsum")
         //> true
-
+        
         // Any persisted record must have an id but the following update statment 
         // applies the table's default filter, hence only the current user's post 
         // will be updated.
