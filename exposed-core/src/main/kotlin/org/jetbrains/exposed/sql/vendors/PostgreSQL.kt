@@ -227,7 +227,7 @@ open class PostgreSQLDialect : VendorDialect(dialectName, PostgreSQLDataTypeProv
             column.dbDefaultValue?.let {
                 append(", ALTER COLUMN $colName SET DEFAULT ${PostgreSQLDataTypeProvider.processForDefaultValue(it)}")
             } ?: run {
-                ",  ALTER COLUMN $colName DROP DEFAULT"
+                append(",  ALTER COLUMN $colName DROP DEFAULT")
             }
         }
     })

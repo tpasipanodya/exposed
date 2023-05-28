@@ -16,6 +16,9 @@ internal object H2DataTypeProvider : DataTypeProvider() {
 }
 
 internal object H2FunctionProvider : FunctionProvider() {
+    private val DatabaseDialect.isH2Oracle: Boolean
+        get() = h2Mode == H2Dialect.H2CompatibilityMode.Oracle
+
     override fun nextVal(seq: Sequence, builder: QueryBuilder) =
         when ((TransactionManager.current().db.dialect as H2Dialect).majorVersion) {
             H2Dialect.H2MajorVersion.One -> super.nextVal(seq, builder)
@@ -62,6 +65,9 @@ internal object H2FunctionProvider : FunctionProvider() {
     ): String = with(QueryBuilder(true)) {
         if (limit != null) {
             transaction.throwUnsupportedException("H2 doesn't support LIMIT in UPDATE with join clause.")
+        }
+        if (where != null && !transaction.db.dialect.isH2Oracle) {
+            transaction.throwUnsupportedException("H2 doesn't support WHERE in UPDATE with join clause.")
         }
         val tableToUpdate = columnsAndValues.map { it.first.table }.distinct().singleOrNull()
             ?: transaction.throwUnsupportedException("H2 supports a join updates with a single table columns to update.")
@@ -226,8 +232,11 @@ open class H2Dialect : VendorDialect(dialectName, H2DataTypeProvider, H2Function
     override fun isAllowedAsColumnDefault(e: Expression<*>): Boolean = true
 
     override fun createIndex(index: Index): String {
-        if (index.columns.any { it.columnType is TextColumnType }) {
-            exposedLogger.warn("Index on ${index.table.tableName} for ${index.columns.joinToString { it.name }} can't be created in H2")
+        if (
+            (majorVersion == H2MajorVersion.One || h2Mode == H2CompatibilityMode.Oracle) &&
+            index.columns.any { it.columnType is TextColumnType }
+        ) {
+            exposedLogger.warn("Index on ${index.table.tableName} for ${index.columns.joinToString { it.name }} can't be created on CLOB in H2")
             return ""
         }
         if (index.indexType != null) {
