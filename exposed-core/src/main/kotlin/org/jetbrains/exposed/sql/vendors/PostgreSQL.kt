@@ -20,6 +20,7 @@ internal object PostgreSQLDataTypeProvider : DataTypeProvider() {
     override fun uuidToDB(value: UUID): Any = value
     override fun dateTimeType(): String = "TIMESTAMP"
     override fun ubyteType(): String = "SMALLINT"
+    override fun hexToDb(hexString: String): String = """E'\\x$hexString'"""
 }
 
 internal object PostgreSQLFunctionProvider : FunctionProvider() {
@@ -44,6 +45,18 @@ internal object PostgreSQLFunctionProvider : FunctionProvider() {
                 append(")")
             }
         }
+    }
+
+    /**
+     * Implementation of [FunctionProvider.locate]
+     * Note: search is case-sensitive
+     * */
+    override fun <T : String?> locate(
+        queryBuilder: QueryBuilder,
+        expr: Expression<T>,
+        substring: String
+    ) = queryBuilder {
+        append("POSITION(\'", substring, "\' IN ", expr, ")")
     }
 
     override fun <T : String?> regexp(
@@ -206,6 +219,8 @@ internal object PostgreSQLFunctionProvider : FunctionProvider() {
 open class PostgreSQLDialect : VendorDialect(dialectName, PostgreSQLDataTypeProvider, PostgreSQLFunctionProvider) {
     override val supportsOrderByNullsFirstLast: Boolean = true
 
+    override val requiresAutoCommitOnCreateDrop: Boolean = true
+
     override fun isAllowedAsColumnDefault(e: Expression<*>): Boolean = true
 
     override fun modifyColumn(column: Column<*>, columnDiff: ColumnDiff): List<String> = listOf(buildString {
@@ -251,5 +266,7 @@ open class PostgreSQLDialect : VendorDialect(dialectName, PostgreSQLDataTypeProv
  * The driver accepts basic URLs in the following format : jdbc:pgsql://localhost:5432/db
  */
 open class PostgreSQLNGDialect : PostgreSQLDialect() {
+    override val requiresAutoCommitOnCreateDrop: Boolean = true
+
     companion object : DialectNameProvider("pgsql")
 }
