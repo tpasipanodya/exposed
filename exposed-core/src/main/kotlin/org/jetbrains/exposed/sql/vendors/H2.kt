@@ -13,6 +13,7 @@ internal object H2DataTypeProvider : DataTypeProvider() {
 
     override fun uuidType(): String = "UUID"
     override fun dateTimeType(): String = "DATETIME(9)"
+    override fun hexToDb(hexString: String): String = "X'$hexString'"
 }
 
 internal object H2FunctionProvider : FunctionProvider() {
@@ -118,6 +119,18 @@ internal object H2FunctionProvider : FunctionProvider() {
         val sql = data.appendTo(builder, prefix = "VALUES (", postfix = ")") { (col, value) -> registerArgument(col, value) }.toString()
 
         return super.insert(false, table, columns, sql, transaction).replaceFirst("INSERT", "MERGE")
+    }
+
+    /**
+     * Implementation of [FunctionProvider.locate]
+     * Note: search is case-sensitive
+     * */
+    override fun <T : String?> locate(
+        queryBuilder: QueryBuilder,
+        expr: Expression<T>,
+        substring: String
+    ) = queryBuilder {
+        append("LOCATE(\'", substring, "\',", expr, ")")
     }
 }
 

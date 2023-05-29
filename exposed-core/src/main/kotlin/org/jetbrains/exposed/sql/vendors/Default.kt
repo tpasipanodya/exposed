@@ -1,13 +1,13 @@
 package org.jetbrains.exposed.sql.vendors
 
+import org.jetbrains.exposed.exceptions.UnsupportedByDialectException
 import org.jetbrains.exposed.exceptions.throwUnsupportedException
 import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.Function
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import java.nio.ByteBuffer
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.collections.HashMap
-import kotlin.collections.LinkedHashSet
 
 /**
  * Provides definitions for all the supported SQL data types.
@@ -93,6 +93,9 @@ abstract class DataTypeProvider {
     /** Time type for storing time without a time zone. */
     open fun timeType(): String = "TIME"
 
+    /** Data type for storing date without time or a time zone. */
+    open fun dateType(): String = "DATE"
+
     // Boolean type
 
     /** Data type for storing boolean values. */
@@ -109,6 +112,7 @@ abstract class DataTypeProvider {
     /** Returns the SQL representation of the specified expression, for it to be used as a column default value. */
     open fun processForDefaultValue(e: Expression<*>): String = when {
         e is LiteralOp<*> -> "$e"
+        e is Function<*> -> "$e"
         currentDialect is MysqlDialect -> "$e"
         currentDialect is SQLServerDialect -> "$e"
         else -> "($e)"
@@ -117,6 +121,9 @@ abstract class DataTypeProvider {
     open fun precessOrderByClause(queryBuilder: QueryBuilder, expression: Expression<*>, sortOrder: SortOrder) {
         queryBuilder.append((expression as? ExpressionAlias<*>)?.alias ?: expression, " ", sortOrder.code)
     }
+
+    /** Returns the hex-encoded value to be inserted into the database. */
+    abstract fun hexToDb(hexString: String): String
 }
 
 /**
@@ -148,6 +155,16 @@ abstract class FunctionProvider {
     open fun random(seed: Int?): String = "RANDOM(${seed?.toString().orEmpty()})"
 
     // String functions
+
+    /**
+     * SQL function that returns the length of [expr], measured in characters, or `null` if [expr] is null.
+     *
+     * @param expr String expression to count characters in.
+     * @param queryBuilder Query builder to append the SQL function to.
+     */
+    open fun <T : String?> charLength(expr: Expression<T>, queryBuilder: QueryBuilder): Unit = queryBuilder {
+        append("CHAR_LENGTH(", expr, ")")
+    }
 
     /**
      * SQL function that extracts a substring from the specified string expression.
@@ -206,6 +223,22 @@ abstract class FunctionProvider {
             append(" SEPARATOR '$it'")
         }
         append(")")
+    }
+
+    /**
+     * SQL function that returns the index of the first occurrence of the given substring [substring]
+     * in the string expression [expr]
+     *
+     * @param queryBuilder Query builder to append the SQL function to.
+     * @param expr String expression to find the substring in.
+     * @param substring: Substring to find
+     * @return index of the first occurrence of [substring] in [expr] starting from 1
+     * or 0 if [expr] doesn't contain [substring]
+     */
+    open fun <T : String?> locate(queryBuilder: QueryBuilder, expr: Expression<T>, substring: String) {
+        throw UnsupportedByDialectException(
+            "There's no generic SQL for LOCATE. There must be vendor specific implementation.", currentDialect
+        )
     }
 
     // Pattern matching
@@ -595,6 +628,9 @@ interface DatabaseDialect {
     val supportsOrderByNullsFirstLast: Boolean get() = false
 
     val likePatternSpecialChars: Map<Char, Char?> get() = defaultLikePatternSpecialChars
+
+    /** Returns true if autoCommit should be enabled to create/drop database */
+    val requiresAutoCommitOnCreateDrop: Boolean get() = false
 
     /** Returns the name of the current database. */
     fun getDatabase(): String

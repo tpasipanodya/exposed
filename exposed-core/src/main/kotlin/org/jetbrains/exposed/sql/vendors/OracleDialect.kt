@@ -44,6 +44,8 @@ internal object OracleDataTypeProvider : DataTypeProvider() {
         e is LiteralOp<*> && e.columnType is IDateColumnType -> "TIMESTAMP ${super.processForDefaultValue(e)}"
         else -> super.processForDefaultValue(e)
     }
+
+    override fun hexToDb(hexString: String): String = "HEXTORAW('$hexString')"
 }
 
 internal object OracleFunctionProvider : FunctionProvider() {
@@ -54,6 +56,10 @@ internal object OracleFunctionProvider : FunctionProvider() {
      * **Note:** Oracle ignores the [seed]. You have to use the `dbms_random.seed` function manually.
      */
     override fun random(seed: Int?): String = "dbms_random.value"
+
+    override fun <T : String?> charLength(expr: Expression<T>, queryBuilder: QueryBuilder) = queryBuilder {
+        append("LENGTH(", expr, ")")
+    }
 
     override fun <T : String?> substring(
         expr: Expression<T>,
@@ -90,6 +96,14 @@ internal object OracleFunctionProvider : FunctionProvider() {
         append(") WITHIN GROUP (ORDER BY ")
         val (col, order) = expr.orderBy.single()
         append(col, " ", order.name, ")")
+    }
+
+    override fun <T : String?> locate(
+        queryBuilder: QueryBuilder,
+        expr: Expression<T>,
+        substring: String
+    ) = queryBuilder {
+        append("INSTR(", expr, ",\'", substring, "\')")
     }
 
     override fun <T> year(expr: Expression<T>, queryBuilder: QueryBuilder): Unit = queryBuilder {

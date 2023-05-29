@@ -16,6 +16,9 @@ import kotlin.internal.LowPriorityInOverloadResolution
 
 // String Functions
 
+/** Returns the length of this string expression, measured in characters, or `null` if this expression is null. */
+fun <T : String?> Expression<T>.charLength(): CharLength<T> = CharLength(this)
+
 /** Converts this string expression to lower case. */
 fun <T : String?> Expression<T>.lowerCase(): LowerCase<T> = LowerCase(this)
 
@@ -39,6 +42,9 @@ fun <T : String?> Expression<T>.substring(start: Int, length: Int): Substring<T>
 
 /** Removes the longest string containing only spaces from both ends of string expression. */
 fun <T : String?> Expression<T>.trim(): Trim<T> = Trim(this)
+
+/** Returns the index of the first occurrence of [substring] in this string expression or 0 if it doesn't contain [substring] */
+fun <T : String?> Expression<T>.locate(substring: String): Locate<T> = Locate(this, substring)
 
 // General-Purpose Aggregate Functions
 
@@ -285,6 +291,26 @@ interface ISqlExpressionBuilder {
 
     /** Returns `true` if this expression is not null, `false` otherwise. */
     fun <T> Expression<T>.isNotNull(): IsNotNullOp = IsNotNullOp(this)
+
+    /** Checks if this expression is equal to some [t] value, with `null` treated as a comparable value */
+    infix fun <T : Comparable<T>, S : T?> ExpressionWithColumnType<in S>.isNotDistinctFrom(t: T): IsNotDistinctFromOp = IsNotDistinctFromOp(this, wrap(t))
+
+    /** Checks if this expression is equal to some [other] expression, with `null` treated as a comparable value */
+    infix fun <T : Comparable<T>, S : T?> Expression<in S>.isNotDistinctFrom(other: Expression<in S>): IsNotDistinctFromOp = IsNotDistinctFromOp(this, other)
+
+    /** Checks if this expression is equal to some [t] value, with `null` treated as a comparable value */
+    @JvmName("isNotDistinctFromEntityID")
+    infix fun <T : Comparable<T>> ExpressionWithColumnType<EntityID<T>>.isNotDistinctFrom(t: T): IsNotDistinctFromOp = IsNotDistinctFromOp(this, wrap(t))
+
+    /** Checks if this expression is not equal to some [t] value, with `null` treated as a comparable value */
+    infix fun <T : Comparable<T>, S : T?> ExpressionWithColumnType<in S>.isDistinctFrom(t: T): IsDistinctFromOp = IsDistinctFromOp(this, wrap(t))
+
+    /** Checks if this expression is not equal to some [other] expression, with `null` treated as a comparable value */
+    infix fun <T : Comparable<T>, S : T?> Expression<in S>.isDistinctFrom(other: Expression<in S>): IsDistinctFromOp = IsDistinctFromOp(this, other)
+
+    /** Checks if this expression is not equal to some [t] value, with `null` treated as a comparable value */
+    @JvmName("isDistinctFromEntityID")
+    infix fun <T : Comparable<T>> ExpressionWithColumnType<EntityID<T>>.isDistinctFrom(t: T): IsDistinctFromOp = IsDistinctFromOp(this, wrap(t))
 
     // Mathematical Operators
 
