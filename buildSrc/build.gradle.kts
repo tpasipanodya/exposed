@@ -11,7 +11,7 @@ dependencies {
 
 tasks.withType<org.jetbrains.kotlin.gradle.dsl.KotlinJvmCompile> {
     kotlinOptions {
-        jvmTarget = "16"
+        jvmTarget = "20"
         apiVersion = "1.5"
         languageVersion = "1.5"
     }

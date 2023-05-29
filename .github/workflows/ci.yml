@@ -20,7 +20,7 @@ jobs:
         uses: actions/setup-java@v3
         with:
           distribution: zulu
-          java-version: 18
+          java-version: 20
       - name: Start Databases
         run: ./scripts/setup.sh
       - name: Build & Deploy
@@ -30,7 +30,7 @@ jobs:
           ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
           IS_RELEASE_BUILD: false
         with:
-          gradle-version: 7.6
+          gradle-version: 8.1.1
           arguments: clean test build artifactoryPublish
       - name: Upload Test Artifacts
         uses: actions/upload-artifact@v3
