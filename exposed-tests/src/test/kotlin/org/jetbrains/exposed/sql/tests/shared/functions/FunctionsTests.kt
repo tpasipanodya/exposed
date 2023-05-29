@@ -330,7 +330,7 @@ class FunctionsTests : DatabaseTestsBase() {
 
     @Test
     fun testLocate() {
-        withCitiesAndUsers { cities, _, _ ->
+        withCitiesAndUsers {
             val locate = cities.name.locate("e")
             val results = cities.slice(locate).selectAll().toList()
 
@@ -342,7 +342,7 @@ class FunctionsTests : DatabaseTestsBase() {
 
     @Test
     fun testLocate02() {
-        withCitiesAndUsers { cities, _, _ ->
+        withCitiesAndUsers {
             val locate = cities.name.locate("Peter")
             val results = cities.slice(locate).selectAll().toList()
 
@@ -354,7 +354,7 @@ class FunctionsTests : DatabaseTestsBase() {
 
     @Test
     fun testLocate03() {
-        withCitiesAndUsers { cities, _, _ ->
+        withCitiesAndUsers {
             val isCaseSensitiveDialect = currentDialectTest is SQLiteDialect ||
                 currentDialectTest is PostgreSQLDialect ||
                 currentDialectTest is H2Dialect
