@@ -16,7 +16,9 @@ be useful for implementing multi-tenancy & soft deletes.
 ## Supported Databases
 Visit [the official Exposed page](https://github.com/JetBrains/Exposed) for an updated list.
 
+
 ## Getting started
+
 
 ```kotlin
 val exposedVersion: String by project

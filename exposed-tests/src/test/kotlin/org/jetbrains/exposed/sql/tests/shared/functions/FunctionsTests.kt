@@ -262,7 +262,6 @@ class FunctionsTests : DatabaseTestsBase() {
 
     @Test
     fun testLengthWithCount01() {
-    fun testCharLengthWithSum() {
         withCitiesAndUsers {
             val sumOfLength = CharLength(cities.name).sum()
             val expectedValue = cities.selectAll().sumOf { it[cities.name].length }
