@@ -9,16 +9,16 @@ dependencies {
     implementation("com.avast.gradle", "gradle-docker-compose-plugin", "0.14.9")
 }
 
-tasks.withType<org.jetbrains.kotlin.gradle.dsl.KotlinJvmCompile> {
+plugins {
+    `kotlin-dsl` apply true
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     kotlinOptions {
         jvmTarget = "20"
         apiVersion = "1.5"
         languageVersion = "1.5"
     }
-}
-
-plugins {
-    `kotlin-dsl` apply true
 }
 
 gradlePlugin {
