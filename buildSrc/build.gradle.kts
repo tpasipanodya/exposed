@@ -15,7 +15,7 @@ plugins {
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     kotlinOptions {
-        jvmTarget = "20"
+        jvmTarget = "19"
         apiVersion = "1.5"
         languageVersion = "1.5"
     }
