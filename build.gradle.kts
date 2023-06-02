@@ -77,7 +77,7 @@ artifactory {
 subprojects {
     tasks.withType<KotlinJvmCompile>().configureEach {
         kotlinOptions {
-            jvmTarget = "20"
+            jvmTarget = "19"
             apiVersion = "1.7"
             languageVersion = "1.7"
         }
