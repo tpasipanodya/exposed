@@ -8,7 +8,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 plugins {
     kotlin("jvm") apply true
     id("org.jetbrains.dokka") version "1.8.10"
-    id("com.jfrog.artifactory") version "4.31.9"
+    id("com.jfrog.artifactory") version "5.0.3"
     id ("java")
     id("maven-publish")
     idea
