@@ -4,8 +4,10 @@ on:
     tags:
       - '*'
 jobs:
-  Build:
+  Build-Release:
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -13,18 +15,19 @@ jobs:
         uses: actions/setup-java@v3
         with:
           distribution: zulu
-          java-version: 19
+          java-version: 20
       - name: Start Databases
         run: ./scripts/setup.sh
       - name: Release
         uses: gradle/gradle-build-action@v2
         env:
-          ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME }}
-          ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
+          PACKAGE_STORE_USERNAME: ${{ secrets.PACKAGE_STORE_USERNAME }}
+          PACKAGE_STORE_TOKEN: ${{ secrets.PACKAGE_STORE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           IS_RELEASE_BUILD: true
         with:
-          gradle-version: 8.1.1
-          arguments: clean test build artifactoryPublish
+          gradle-version: 8.2.1
+          arguments: clean test build publish --info --stacktrace
       - name: Upload Test Artifacts
         uses: actions/upload-artifact@v3
         if: success() || failure()

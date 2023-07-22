@@ -31,12 +31,20 @@ dependencies {
 }
 
 publishing {
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/tpasipanodya/exposed-extensions")
+            credentials {
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
+            }
+        }
+    }
     publications {
         create<MavenPublication>("bom") {
             from(components.getByName("javaPlatform"))
-            pom {
-                setPomMetadata(project)
-            }
+            pom { setPomMetadata(project) }
             signPublicationIfKeyPresent(project)
         }
     }
