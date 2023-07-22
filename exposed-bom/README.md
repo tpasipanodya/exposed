@@ -8,7 +8,7 @@ Bill of Materials for all Exposed modules
     <repository>
         <id>mavenCentral</id>
         <name>mavenCentral</name>
-        <url>https://tmpasipanodya.jfrog.io/artifactory/releases</url>
+        <url>https://maven.pkg.github.com/tpasipanodya/exposed</url>
     </repository>
 </repositories>
 
@@ -45,8 +45,15 @@ Bill of Materials for all Exposed modules
 
 # Gradle
 ```kotlin
-repositories { 
-    maven("https://tmpasipanodya.jfrog.io/artifactory/releases")
+repositories {
+    maven {
+        name = "GitHubPackages"
+        url = uri("https://maven.pkg.github.com/tpasipanodya/exposed")
+        credentials {
+            username = System.getenv("GITHUB_USERNAME")
+            password = System.getenv("GITHUB_ACCESS_TOKEN")
+        }
+    }
 }
 
 dependencies {

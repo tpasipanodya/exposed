@@ -23,7 +23,14 @@ Visit [the official Exposed page](https://github.com/JetBrains/Exposed) for an u
 ```kotlin
 val exposedVersion: String by project
 repositories {
-    maven("https://tmpasipanodya.jfrog.io/artifactory/releases")
+    maven {
+			name = "GitHubPackages"
+			url = uri("https://maven.pkg.github.com/tpasipanodya/exposed")
+			credentials {
+				username = System.getenv("GITHUB_USERNAME")
+				password = System.getenv("GITHUB_ACCESS_TOKEN")
+			}
+		}
 }
 
 dependencies {
@@ -35,7 +42,7 @@ dependencies {
 ```
 
 The latest release version is `0.9.1` (pegged against `org.jetbrains.exposed:exposed:0.41.1`)
-and is available on JFrog at `https://tmpasipanodya.jfrog.io/artifactory/releases`.
+and is available on JFrog at `https://maven.pkg.github.com/tpasipanodya/exposed`.
 
 ## Examples
 
