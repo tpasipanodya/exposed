@@ -18,7 +18,7 @@ plugins {
 tasks.withType<KotlinCompile>().configureEach {
     kotlinOptions {
         freeCompilerArgs = listOf("-Xjsr305=strict")
-        jvmTarget = "20"
+        jvmTarget = "19"
     }
 }
 
