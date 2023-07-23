@@ -5,6 +5,8 @@ repositories {
     gradlePluginPortal()
 }
 
+java.sourceCompatibility = JavaVersion.VERSION_20
+
 dependencies {
     gradleApi()
     implementation("org.jetbrains.kotlin.jvm", "org.jetbrains.kotlin.jvm.gradle.plugin", "1.9.0")
