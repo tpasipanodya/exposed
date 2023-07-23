@@ -1,3 +1,4 @@
+import org.jetbrains.exposed.gradle.isReleaseBuild
 import org.jetbrains.exposed.gradle.setPomMetadata
 import org.jetbrains.exposed.gradle.signPublicationIfKeyPresent
 
@@ -43,6 +44,7 @@ publishing {
     }
     publications {
         create<MavenPublication>("bom") {
+            version = if (isReleaseBuild()) "${project.version}" else "${project.version}-SNAPSHOT-"
             from(components.getByName("javaPlatform"))
             pom { setPomMetadata(project) }
             signPublicationIfKeyPresent(project)
