@@ -15,7 +15,7 @@ plugins {
     `kotlin-dsl` apply true
 }
 
-tasks.withType<KotlinCompile>().configureEach {
+tasks.withType<KotlinCompile>() {
     kotlinOptions {
         freeCompilerArgs = listOf("-Xjsr305=strict")
         jvmTarget = "20"
