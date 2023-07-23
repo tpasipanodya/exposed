@@ -1,12 +1,13 @@
 import groovy.lang.GroovyObject
 import org.jetbrains.exposed.gradle.isReleaseBuild
 import org.jetbrains.exposed.gradle.setPomMetadata
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 plugins {
     kotlin("jvm") apply true
     id("org.jetbrains.dokka") version "1.8.20"
     id("maven-publish")
+    id ("java")
     idea
 }
 
@@ -14,8 +15,6 @@ repositories {
     mavenCentral()
     maven("https://jitpack.io")
 }
-
-java.sourceCompatibility = JavaVersion.VERSION_20
 
 allprojects {
     if (this.name != "exposed-tests" && this.name != "exposed-bom" && this != rootProject) {
@@ -53,11 +52,11 @@ allprojects {
 }
 
 subprojects {
-    java.sourceCompatibility = JavaVersion.VERSION_20
-    tasks.withType<KotlinCompile>().configureEach {
+    tasks.withType<KotlinJvmCompile>().configureEach {
         kotlinOptions {
-            freeCompilerArgs = listOf("-Xjsr305=strict")
-            jvmTarget = "20"
+            jvmTarget = "19"
+            apiVersion = "1.7"
+            languageVersion = "1.7"
         }
     }
 }
