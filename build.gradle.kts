@@ -6,7 +6,6 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     kotlin("jvm") apply true
     id("org.jetbrains.dokka") version "1.8.20"
-    id ("java")
     id("maven-publish")
     idea
 }
