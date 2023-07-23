@@ -38,7 +38,7 @@ allprojects {
                 create<MavenPublication>("mavenJava") {
                     artifactId = projekt.name
                     from(projekt.components["java"])
-                    version = if (isReleaseBuild()) "${projekt.version}" else "${projekt.version}-SNAPSHOT"
+                    version = if (isReleaseBuild()) "${projekt.version}" else "${projekt.version}-SNAPSHOT-"
                     versionMapping {
                         usage("java-api") {
                             fromResolutionOf("runtimeClasspath")
