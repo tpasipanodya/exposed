@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 repositories {
     mavenCentral()
     gradlePluginPortal()
@@ -13,11 +15,10 @@ plugins {
     `kotlin-dsl` apply true
 }
 
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+tasks.withType<KotlinCompile>().configureEach {
     kotlinOptions {
-        jvmTarget = "19"
-        apiVersion = "1.7"
-        languageVersion = "1.7"
+        freeCompilerArgs = listOf("-Xjsr305=strict")
+        jvmTarget = "20"
     }
 }
 

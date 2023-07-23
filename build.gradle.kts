@@ -1,7 +1,7 @@
 import groovy.lang.GroovyObject
 import org.jetbrains.exposed.gradle.isReleaseBuild
 import org.jetbrains.exposed.gradle.setPomMetadata
-import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     kotlin("jvm") apply true
@@ -52,11 +52,10 @@ allprojects {
 }
 
 subprojects {
-    tasks.withType<KotlinJvmCompile>().configureEach {
+    tasks.withType<KotlinCompile>().configureEach {
         kotlinOptions {
-            jvmTarget = "19"
-            apiVersion = "1.7"
-            languageVersion = "1.7"
+            freeCompilerArgs = listOf("-Xjsr305=strict")
+            jvmTarget = "20"
         }
     }
 }
