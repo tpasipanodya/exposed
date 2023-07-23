@@ -15,6 +15,8 @@ repositories {
     maven("https://jitpack.io")
 }
 
+java.sourceCompatibility = JavaVersion.VERSION_20
+
 allprojects {
     if (this.name != "exposed-tests" && this.name != "exposed-bom" && this != rootProject) {
         apply(plugin = "maven-publish")
@@ -51,6 +53,7 @@ allprojects {
 }
 
 subprojects {
+    java.sourceCompatibility = JavaVersion.VERSION_20
     tasks.withType<KotlinCompile>().configureEach {
         kotlinOptions {
             freeCompilerArgs = listOf("-Xjsr305=strict")
