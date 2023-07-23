@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 repositories {
     mavenCentral()
     gradlePluginPortal()
@@ -5,7 +7,7 @@ repositories {
 
 dependencies {
     gradleApi()
-    implementation("org.jetbrains.kotlin.jvm", "org.jetbrains.kotlin.jvm.gradle.plugin", "1.8.21")
+    implementation("org.jetbrains.kotlin.jvm", "org.jetbrains.kotlin.jvm.gradle.plugin", "1.9.0")
     implementation("com.avast.gradle", "gradle-docker-compose-plugin", "0.14.9")
 }
 
@@ -13,7 +15,7 @@ plugins {
     `kotlin-dsl` apply true
 }
 
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+tasks.withType<KotlinCompile> {
     kotlinOptions {
         jvmTarget = "19"
         apiVersion = "1.7"

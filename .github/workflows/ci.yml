@@ -11,7 +11,9 @@ jobs:
         with:
           github_token: ${{ secrets.github_token }}
           detekt_config: detekt.yml
-  Build:
+  Build-Snapshot:
+    permissions:
+      packages: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,12 +28,12 @@ jobs:
       - name: Build & Deploy
         uses: gradle/gradle-build-action@v2
         env:
-          ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME }}
-          ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
-          IS_RELEASE_BUILD: false
+          PACKAGE_STORE_USERNAME: ${{ secrets.PACKAGE_STORE_USERNAME }}
+          PACKAGE_STORE_TOKEN: ${{ secrets.PACKAGE_STORE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          gradle-version: 8.1.1
-          arguments: clean test build artifactoryPublish
+          gradle-version: 8.2.1
+          arguments: clean test build publish --info --stacktrace -PIS_RELEASE_BUILD=false
       - name: Upload Test Artifacts
         uses: actions/upload-artifact@v3
         if: success() || failure()

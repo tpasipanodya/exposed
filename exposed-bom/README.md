@@ -8,7 +8,7 @@ Bill of Materials for all Exposed modules
     <repository>
         <id>mavenCentral</id>
         <name>mavenCentral</name>
-        <url>https://tmpasipanodya.jfrog.io/artifactory/releases</url>
+        <url>https://maven.pkg.github.com/tpasipanodya/exposed</url>
     </repository>
 </repositories>
 
@@ -17,7 +17,7 @@ Bill of Materials for all Exposed modules
         <dependency>
             <groupId>io.taff.exposed</groupId>
             <artifactId>exposed-bom</artifactId>
-            <version>0.9.0</version>
+            <version>0.9.1</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
@@ -45,12 +45,19 @@ Bill of Materials for all Exposed modules
 
 # Gradle
 ```kotlin
-repositories { 
-    maven("https://tmpasipanodya.jfrog.io/artifactory/releases")
+repositories {
+    maven {
+        name = "GitHubPackages"
+        url = uri("https://maven.pkg.github.com/tpasipanodya/exposed")
+        credentials {
+            username = System.getenv("GITHUB_USERNAME")
+            password = System.getenv("GITHUB_ACCESS_TOKEN")
+        }
+    }
 }
 
 dependencies {
-    implementation(platform("io.taff.exposed:exposed-bom:0.9.0"))
+    implementation(platform("io.taff.exposed:exposed-bom:0.9.1"))
     implementation("io.taff.exposed", "exposed-core")
     implementation("io.taff.exposed", "exposed-dao")
     implementation("io.taff.exposed", "exposed-jdbc")

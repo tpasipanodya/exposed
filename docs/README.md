@@ -23,19 +23,26 @@ Visit [the official Exposed page](https://github.com/JetBrains/Exposed) for an u
 ```kotlin
 val exposedVersion: String by project
 repositories {
-    maven("https://tmpasipanodya.jfrog.io/artifactory/releases")
+    maven {
+			name = "GitHubPackages"
+			url = uri("https://maven.pkg.github.com/tpasipanodya/exposed")
+			credentials {
+				username = System.getenv("GITHUB_USERNAME")
+				password = System.getenv("GITHUB_ACCESS_TOKEN")
+			}
+		}
 }
 
 dependencies {
-    implementation(platform("io.taff.exposed:exposed-bom:0.9.0"))
+    implementation(platform("io.taff.exposed:exposed-bom:0.9.1"))
     implementation("io.taff.exposed", "exposed-core")
     implementation("io.taff.exposed", "exposed-dao")
     implementation("io.taff.exposed", "exposed-jdbc")
 }
 ```
 
-The latest release version is `0.9.0` (pegged against `org.jetbrains.exposed:exposed:0.41.1`)
-and is available on JFrog at `https://tmpasipanodya.jfrog.io/artifactory/releases`.
+The latest release version is `0.9.1` (pegged against `org.jetbrains.exposed:exposed:0.41.1`)
+and is available on JFrog at `https://maven.pkg.github.com/tpasipanodya/exposed`.
 
 ## Examples
 

@@ -1,8 +1,8 @@
 package org.jetbrains.exposed.gradle
 
 object Versions {
-    const val kotlin = " 1.8.21"
-    const val kotlinCoroutines = "1.6.4"
+    const val kotlin = " 1.9.0"
+    const val kotlinCoroutines = "1.7.2"
 
     const val slf4j = "1.7.36"
     const val log4j2 = "2.17.2"

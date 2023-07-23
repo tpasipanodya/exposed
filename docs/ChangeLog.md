@@ -1,3 +1,8 @@
+# 0.9.1
+
+* `jvm` version `1.9.0`
+* Moved build artifacts to GitHub Packages
+
 # 0.9.0
 
 * `jdk` version `19`

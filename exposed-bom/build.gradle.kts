@@ -1,3 +1,4 @@
+import org.jetbrains.exposed.gradle.isReleaseBuild
 import org.jetbrains.exposed.gradle.setPomMetadata
 import org.jetbrains.exposed.gradle.signPublicationIfKeyPresent
 
@@ -31,12 +32,21 @@ dependencies {
 }
 
 publishing {
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/tpasipanodya/exposed")
+            credentials {
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
+            }
+        }
+    }
     publications {
         create<MavenPublication>("bom") {
+            version = if (isReleaseBuild()) "${project.version}" else "${project.version}-SNAPSHOT-"
             from(components.getByName("javaPlatform"))
-            pom {
-                setPomMetadata(project)
-            }
+            pom { setPomMetadata(project) }
             signPublicationIfKeyPresent(project)
         }
     }
