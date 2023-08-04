@@ -12,6 +12,7 @@ import org.jetbrains.exposed.sql.tests.currentDialectTest
 import org.jetbrains.exposed.sql.tests.shared.assertEquals
 import org.jetbrains.exposed.sql.tests.shared.assertFalse
 import org.jetbrains.exposed.sql.tests.shared.assertTrue
+import java.math.BigDecimal
 import java.util.*
 
 
@@ -19,6 +20,13 @@ object Cities : Table() {
     val id: Column<Int> = integer("cityId").autoIncrement()
     val name: Column<String> = varchar("name", 50)
     override val primaryKey = PrimaryKey(id)
+}
+
+object Sales : Table() {
+    val year: Column<Int> = integer("year")
+    val month: Column<Int> = integer("month")
+    val product: Column<String?> = varchar("product", 30).nullable()
+    val amount: Column<BigDecimal> = decimal("amount", 8, 2)
 }
 
 object Users : Table() {
@@ -66,7 +74,8 @@ class DmlTestRuntime(val transaction: Transaction,
                      val users: Users,
                      val userData: UserData,
                      val scopedUsers: ScopedUsers,
-                     val scopedUserData: ScopedUserData){
+                     val scopedUserData: ScopedUserData,
+                     val sales: Sales){
     fun assertTrue(actual: Boolean) = transaction.assertTrue(actual)
     fun assertFalse(actual: Boolean) = transaction.assertFalse(actual)
     fun <T> assertEquals(exp: T, act: T) = transaction.assertEquals(exp, act)
@@ -206,13 +215,38 @@ fun DatabaseTestsBase.withCitiesAndUsers(exclude: List<TestDB> = emptyList(),
             it[value] = 30
         }
 
-       DmlTestRuntime(this,
-                      Cities,
-                      Users,
-                      UserData,
-                      ScopedUsers,
-                      ScopedUserData)
-           .apply(statement)
+       DmlTestRuntime(
+           this,
+           Cities,
+           Users,
+           UserData,
+           ScopedUsers,
+           ScopedUserData,
+           Sales
+       ).apply(statement)
+    }
+}
+
+fun DatabaseTestsBase.withSales(statement: Transaction.(testDb: TestDB, sales: Sales) -> Unit) {
+    withTables(Sales) {
+        insertSale(2018, 11, "tea", "550.10")
+        insertSale(2018, 12, "coffee", "1500.25")
+        insertSale(2018, 12, "tea", "900.30")
+        insertSale(2019, 1, "coffee", "1620.10")
+        insertSale(2019, 1, "tea", "650.70")
+        insertSale(2019, 2, "coffee", "1870.90")
+        insertSale(2019, 2, null, "10.20")
+
+        statement(it, Sales)
+    }
+}
+
+private fun insertSale(year: Int, month: Int, product: String?, amount: String) {
+    Sales.insert {
+        it[Sales.year] = year
+        it[Sales.month] = month
+        it[Sales.product] = product
+        it[Sales.amount] = BigDecimal(amount)
     }
 }
 

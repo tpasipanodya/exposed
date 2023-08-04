@@ -27,6 +27,7 @@ internal object SQLServerDataTypeProvider : DataTypeProvider() {
     override fun textType(): String = "VARCHAR(MAX)"
     override fun mediumTextType(): String = textType()
     override fun largeTextType(): String = textType()
+    override fun jsonType(): String = "NVARCHAR(MAX)"
 
     override fun precessOrderByClause(queryBuilder: QueryBuilder, expression: Expression<*>, sortOrder: SortOrder) {
         when (sortOrder) {
@@ -118,6 +119,40 @@ internal object SQLServerFunctionProvider : FunctionProvider() {
         append("DATEPART(MINUTE, ", expr, ")")
     }
 
+    override fun <T> stdDevPop(expression: Expression<T>, queryBuilder: QueryBuilder): Unit = queryBuilder {
+        append("STDEVP(", expression, ")")
+    }
+
+    override fun <T> stdDevSamp(expression: Expression<T>, queryBuilder: QueryBuilder): Unit = queryBuilder {
+        append("STDEV(", expression, ")")
+    }
+
+    override fun <T> varPop(expression: Expression<T>, queryBuilder: QueryBuilder): Unit = queryBuilder {
+        append("VARP(", expression, ")")
+    }
+
+    override fun <T> varSamp(expression: Expression<T>, queryBuilder: QueryBuilder): Unit = queryBuilder {
+        append("VAR(", expression, ")")
+    }
+
+    override fun <T> jsonExtract(
+        expression: Expression<T>,
+        vararg path: String,
+        toScalar: Boolean,
+        jsonType: IColumnType,
+        queryBuilder: QueryBuilder
+    ) {
+        if (path.size > 1) {
+            TransactionManager.current().throwUnsupportedException("SQLServer does not support multiple JSON path arguments")
+        }
+        queryBuilder {
+            append(if (toScalar) "JSON_VALUE" else "JSON_QUERY")
+            append("(", expression, ", ")
+            path.ifEmpty { arrayOf("") }.appendTo { +"'$$it'" }
+            append(")")
+        }
+    }
+
     override fun update(
         target: Table,
         columnsAndValues: List<Pair<Column<*>, Any?>>,
@@ -164,6 +199,18 @@ internal object SQLServerFunctionProvider : FunctionProvider() {
         toString()
     }
 
+    override fun upsert(
+        table: Table,
+        data: List<Pair<Column<*>, Any?>>,
+        onUpdate: List<Pair<Column<*>, Expression<*>>>?,
+        where: Op<Boolean>?,
+        transaction: Transaction,
+        vararg keys: Column<*>
+    ): String {
+        // SQLSERVER MERGE statement must be terminated by a semi-colon (;)
+        return super.upsert(table, data, onUpdate, where, transaction, *keys) + ";"
+    }
+
     override fun delete(ignore: Boolean, table: Table, where: String?, limit: Int?, transaction: Transaction): String {
         val def = super.delete(ignore, table, where, null, transaction)
         return if (limit != null) def.replaceFirst("DELETE", "DELETE TOP($limit)") else def
@@ -191,8 +238,7 @@ open class SQLServerDialect : VendorDialect(dialectName, SQLServerDataTypeProvid
         return columnDefault !in nonAcceptableDefaults
     }
 
-    // TODO: Fix changing default value on column as it requires to drop/create constraint
-    // https://stackoverflow.com/questions/15547210/modify-default-value-in-sql-server
+    // EXPOSED-85 Fix changing default value on column in SQL Server as it requires to drop/create constraint
     override fun modifyColumn(column: Column<*>, columnDiff: ColumnDiff): List<String> =
         super.modifyColumn(column, columnDiff).map { it.replace("MODIFY COLUMN", "ALTER COLUMN") }
 
@@ -215,8 +261,26 @@ open class SQLServerDialect : VendorDialect(dialectName, SQLServerDataTypeProvid
         }
     }
 
-    override fun createIndexWithType(name: String, table: String, columns: String, type: String): String {
-        return "CREATE $type INDEX $name ON $table $columns"
+    override fun createIndex(index: Index): String {
+        if (index.functions != null) {
+            exposedLogger.warn(
+                "Functional index on ${index.table.tableName} using ${index.functions.joinToString { it.toString() }} can't be created in SQLServer"
+            )
+            return ""
+        }
+        return super.createIndex(index)
+    }
+
+    override fun createIndexWithType(name: String, table: String, columns: String, type: String, filterCondition: String): String {
+        return "CREATE $type INDEX $name ON $table $columns$filterCondition"
+    }
+
+    override fun dropIndex(tableName: String, indexName: String, isUnique: Boolean, isPartialOrFunctional: Boolean): String {
+        return if (isUnique && !isPartialOrFunctional) {
+            "ALTER TABLE ${identifierManager.quoteIfNecessary(tableName)} DROP CONSTRAINT IF EXISTS ${identifierManager.quoteIfNecessary(indexName)}"
+        } else {
+            "DROP INDEX IF EXISTS ${identifierManager.quoteIfNecessary(indexName)} ON ${identifierManager.quoteIfNecessary(tableName)}"
+        }
     }
 
     // https://docs.microsoft.com/en-us/sql/t-sql/language-elements/like-transact-sql?redirectedfrom=MSDN&view=sql-server-ver15#arguments

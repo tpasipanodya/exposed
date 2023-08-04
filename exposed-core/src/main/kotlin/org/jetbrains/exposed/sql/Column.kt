@@ -35,6 +35,8 @@ class Column<T>(
     var defaultValueFun: (() -> T)? = null
     internal var dbDefaultValue: Expression<T>? = null
 
+    fun defaultValueInDb() = dbDefaultValue
+
     /** Appends the SQL representation of this column to the specified [queryBuilder]. */
     override fun toQueryBuilder(queryBuilder: QueryBuilder): Unit = TransactionManager.current().fullIdentity(this@Column, queryBuilder)
 
@@ -79,6 +81,7 @@ class Column<T>(
     internal fun isOneColumnPK(): Boolean = this == table.primaryKey?.columns?.singleOrNull()
 
     /** Returns the SQL representation of this column. */
+    @Suppress("ComplexMethod")
     fun descriptionDdl(modify: Boolean = false): String = buildString {
         val tr = TransactionManager.current()
         val column = this@Column

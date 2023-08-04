@@ -25,7 +25,6 @@ fun <ID : Comparable<ID>, T : Entity<ID>> EntityChange.toEntity(): T? = (entityC
 
 fun <ID : Comparable<ID>, T : Entity<ID>> EntityChange.toEntity(klass: EntityClass<ID, T>): T? {
     if (!entityClass.isAssignableTo(klass)) return null
-    @Suppress("UNCHECKED_CAST")
     return toEntity<ID, T>()
 }
 
@@ -52,7 +51,6 @@ fun Transaction.registerChange(entityClass: EntityClass<*, Entity<*>>, entityId:
         }
     }
 }
-
 
 private var isProcessingEventsLaunched by transactionScope { false }
 fun Transaction.alertSubscribers() {

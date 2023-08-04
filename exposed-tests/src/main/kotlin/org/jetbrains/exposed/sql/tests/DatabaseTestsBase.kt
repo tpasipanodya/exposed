@@ -7,9 +7,12 @@ import org.jetbrains.exposed.sql.transactions.inTopLevelTransaction
 import org.jetbrains.exposed.sql.transactions.nullableTransactionScope
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.transactions.transactionManager
+import org.jetbrains.exposed.sql.vendors.H2Dialect
+import org.jetbrains.exposed.sql.vendors.MysqlDialect
 import org.junit.Assume
 import org.junit.AssumptionViolatedException
 import org.testcontainers.containers.MySQLContainer
+import java.math.BigDecimal
 import java.sql.Connection
 import java.sql.SQLException
 import java.time.Duration
@@ -81,7 +84,8 @@ enum class TestDB(
         beforeConnection = {
             Locale.setDefault(Locale.ENGLISH)
             val tmp = Database.connect(ORACLE.connection(), user = "sys as sysdba", password = "Oracle18", driver = ORACLE.driver)
-            transaction(Connection.TRANSACTION_READ_COMMITTED, 1, db  = tmp) {
+            transaction(Connection.TRANSACTION_READ_COMMITTED, db  = tmp) {
+                repetitionAttempts = 1
                 try {
                     exec("DROP USER ExposedTest CASCADE")
                 } catch (e: Exception) { // ignore
@@ -122,6 +126,7 @@ enum class TestDB(
 
     companion object {
         val allH2TestDB = listOf(H2, H2_MYSQL, H2_PSQL, H2_MARIADB, H2_ORACLE, H2_SQLSERVER)
+        val mySqlRelatedDB = listOf(MYSQL, MARIADB, H2_MYSQL, H2_MARIADB)
         fun enabledInTests(): Set<TestDB> {
             val concreteDialects = System.getProperty("exposed.test.dialects", "")
                 .split(",")
@@ -146,7 +151,6 @@ private fun runTestContainersMySQL(): Boolean =
 
 internal var currentTestDB by nullableTransactionScope<TestDB>()
 
-@Suppress("UnnecessaryAbstractClass")
 abstract class DatabaseTestsBase {
     init {
         TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
@@ -180,7 +184,8 @@ abstract class DatabaseTestsBase {
 
         val database = dbSettings.db!!
         try {
-            transaction(database.transactionManager.defaultIsolationLevel, 1, db = database) {
+            transaction(database.transactionManager.defaultIsolationLevel, db = database) {
+                repetitionAttempts = 1
                 registerInterceptor(CurrentTestDBInterceptor)
                 currentTestDB = dbSettings
                 statement(dbSettings)
@@ -221,7 +226,8 @@ abstract class DatabaseTestsBase {
                         commit()
                     } catch (_: Exception) {
                         val database = testDB.db!!
-                        inTopLevelTransaction(database.transactionManager.defaultIsolationLevel, 1, db = database) {
+                        inTopLevelTransaction(database.transactionManager.defaultIsolationLevel, db = database) {
+                            repetitionAttempts = 1
                             SchemaUtils.drop(*tables)
                         }
                     }
@@ -261,6 +267,14 @@ abstract class DatabaseTestsBase {
     } else {
         ""
     }
+
+    fun Transaction.excludingH2Version1(dbSettings: TestDB, statement: Transaction.(TestDB) -> Unit) {
+        if (dbSettings !in TestDB.allH2TestDB || (db.dialect as H2Dialect).isSecondVersion) {
+            statement(dbSettings)
+        }
+    }
+
+    fun Transaction.isOldMySql(version: String = "8.0") = currentDialectTest is MysqlDialect && !db.isVersionCovers(BigDecimal(version))
 
     protected fun prepareSchemaForTest(schemaName: String) : Schema {
         return Schema(schemaName, defaultTablespace = "USERS", temporaryTablespace = "TEMP ", quota = "20M", on = "USERS")

@@ -2,6 +2,7 @@ package org.jetbrains.exposed.sql
 
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.wrap
+import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import org.jetbrains.exposed.sql.vendors.*
 import java.math.BigDecimal
 
@@ -35,7 +36,7 @@ abstract class Op<T> : Expression<T>() {
     object FALSE : Op<Boolean>(), OpBoolean {
         override fun toQueryBuilder(queryBuilder: QueryBuilder): Unit = queryBuilder {
             when {
-                currentDialect is SQLServerDialect || currentDialect is OracleDialect || currentDialect.h2Mode == H2Dialect.H2CompatibilityMode.Oracle  ->
+                currentDialect is SQLServerDialect || currentDialect is OracleDialect || currentDialect.h2Mode == H2Dialect.H2CompatibilityMode.Oracle ->
                     build { booleanLiteral(true) eq booleanLiteral(false) }.toQueryBuilder(this)
                 else -> append(currentDialect.dataTypeProvider.booleanToStatementString(false))
             }
@@ -427,11 +428,11 @@ class AndBitOp<T, S : T>(
                 when (dialect.isSecondVersion) {
                     false -> append("BITAND(", expr1, ", ", expr2, ")")
                     true -> {
-                        +"BITAND("
+                        + "BITAND("
                         castToExpressionTypeForH2BitWiseIps(expr1, this)
-                        +", "
+                        + ", "
                         castToExpressionTypeForH2BitWiseIps(expr2, this)
-                        +")"
+                        + ")"
                     }
                 }
             }
@@ -459,11 +460,11 @@ class OrBitOp<T, S : T>(
                 when (dialect.isSecondVersion) {
                     false -> append("BITOR(", expr1, ", ", expr2, ")")
                     true -> {
-                        +"BITOR("
+                        + "BITOR("
                         castToExpressionTypeForH2BitWiseIps(expr1, this)
-                        +", "
+                        + ", "
                         castToExpressionTypeForH2BitWiseIps(expr2, this)
-                        +")"
+                        + ")"
                     }
                 }
             }
@@ -494,11 +495,11 @@ class XorBitOp<T, S : T>(
                 when (dialect.isSecondVersion) {
                     false -> append("BITXOR(", expr1, ", ", expr2, ")")
                     true -> {
-                        +"BITXOR("
+                        + "BITXOR("
                         castToExpressionTypeForH2BitWiseIps(expr1, this)
-                        +", "
+                        + ", "
                         castToExpressionTypeForH2BitWiseIps(expr2, this)
-                        +")"
+                        + ")"
                     }
                 }
             }
@@ -518,17 +519,17 @@ class LikeEscapeOp(expr1: Expression<*>, expr2: Expression<*>, like: Boolean, va
         super.toQueryBuilder(queryBuilder)
         if (escapeChar != null) {
             with(queryBuilder) {
-                +" ESCAPE "
-                +stringParam(escapeChar.toString())
+                + " ESCAPE "
+                + stringParam(escapeChar.toString())
             }
         }
     }
 }
 
-@Deprecated("Use LikeEscapeOp", replaceWith = ReplaceWith("LikeEscapeOp(expr1, expr2, true, null)"), level = DeprecationLevel.WARNING)
+@Deprecated("Use LikeEscapeOp", replaceWith = ReplaceWith("LikeEscapeOp(expr1, expr2, true, null)"), DeprecationLevel.ERROR)
 class LikeOp(expr1: Expression<*>, expr2: Expression<*>) : ComparisonOp(expr1, expr2, "LIKE")
 
-@Deprecated("Use LikeEscapeOp", replaceWith = ReplaceWith("LikeEscapeOp(expr1, expr2, false, null)"), level = DeprecationLevel.WARNING)
+@Deprecated("Use LikeEscapeOp", replaceWith = ReplaceWith("LikeEscapeOp(expr1, expr2, false, null)"), DeprecationLevel.ERROR)
 class NotLikeOp(expr1: Expression<*>, expr2: Expression<*>) : ComparisonOp(expr1, expr2, "NOT LIKE")
 
 /**
@@ -552,7 +553,7 @@ class RegexpOp<T : String?>(
 /**
  * Represents an SQL operator that checks if [query] returns at least one row.
  */
-class exists(
+class Exists(
     /** Returns the query being checked. */
     val query: AbstractQuery<*>
 ) : Op<Boolean>(), Op.OpBoolean {
@@ -563,10 +564,13 @@ class exists(
     }
 }
 
+/** Returns an SQL operator that checks if [query] returns at least one row. */
+fun exists(query: AbstractQuery<*>) = Exists(query)
+
 /**
  * Represents an SQL operator that checks if [query] doesn't returns any row.
  */
-class notExists(
+class NotExists(
     /** Returns the query being checked. */
     val query: AbstractQuery<*>
 ) : Op<Boolean>(), Op.OpBoolean {
@@ -576,6 +580,9 @@ class notExists(
         append(")")
     }
 }
+
+/** Returns an SQL operator that checks if [query] doesn't returns any row. */
+fun notExists(query: AbstractQuery<*>) = NotExists(query)
 
 sealed class SubQueryOp<T>(
     val operator: String,
@@ -587,7 +594,7 @@ sealed class SubQueryOp<T>(
     override fun toQueryBuilder(queryBuilder: QueryBuilder): Unit = queryBuilder {
         append(expr, " $operator (")
         query.prepareSQL(this)
-        +")"
+        + ")"
     }
 }
 
@@ -621,7 +628,7 @@ class LiteralOp<T>(
     /** Returns the value being used as a literal. */
     val value: T
 ) : ExpressionWithColumnType<T>() {
-    override fun toQueryBuilder(queryBuilder: QueryBuilder): Unit = queryBuilder { +columnType.valueToString(value) }
+    override fun toQueryBuilder(queryBuilder: QueryBuilder): Unit = queryBuilder { + columnType.valueToString(value) }
 }
 
 /** Returns the specified [value] as a boolean literal. */
@@ -678,7 +685,8 @@ class QueryParameter<T>(
 }
 
 /** Returns the specified [value] as a query parameter with the same type as [column]. */
-fun <T : Comparable<T>> idParam(value: EntityID<T>, column: Column<EntityID<T>>): Expression<EntityID<T>> = QueryParameter(value, EntityIDColumnType(column))
+fun <T : Comparable<T>> idParam(value: EntityID<T>, column: Column<EntityID<T>>): Expression<EntityID<T>> =
+    QueryParameter(value, EntityIDColumnType(column))
 
 /** Returns the specified [value] as a boolean query parameter. */
 fun booleanParam(value: Boolean): Expression<Boolean> = QueryParameter(value, BooleanColumnType.INSTANCE)
@@ -719,6 +727,9 @@ fun stringParam(value: String): Expression<String> = QueryParameter(value, TextC
 /** Returns the specified [value] as a decimal query parameter. */
 fun decimalParam(value: BigDecimal): Expression<BigDecimal> = QueryParameter(value, DecimalColumnType(value.precision(), value.scale()))
 
+/** Returns the specified [value] as a blob query parameter. */
+fun blobParam(value: ExposedBlob): Expression<ExposedBlob> = QueryParameter(value, BlobColumnType())
+
 // Misc.
 
 /**
@@ -730,7 +741,7 @@ class NoOpConversion<T, S>(
     val expr: Expression<T>,
     override val columnType: IColumnType
 ) : ExpressionWithColumnType<S>() {
-    override fun toQueryBuilder(queryBuilder: QueryBuilder): Unit = queryBuilder { +expr }
+    override fun toQueryBuilder(queryBuilder: QueryBuilder): Unit = queryBuilder { + expr }
 }
 
 private fun QueryBuilder.appendExpression(expr: Expression<*>) {

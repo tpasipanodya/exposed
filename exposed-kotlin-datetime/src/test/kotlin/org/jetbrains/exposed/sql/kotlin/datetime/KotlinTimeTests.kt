@@ -1,15 +1,20 @@
 package org.jetbrains.exposed.sql.kotlin.datetime
 
 import kotlinx.datetime.*
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.between
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.like
+import org.jetbrains.exposed.sql.json.extract
+import org.jetbrains.exposed.sql.json.jsonb
 import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
 import org.jetbrains.exposed.sql.tests.TestDB
 import org.jetbrains.exposed.sql.tests.currentDialectTest
 import org.jetbrains.exposed.sql.tests.shared.assertEquals
+import org.jetbrains.exposed.sql.tests.shared.assertTrue
 import org.jetbrains.exposed.sql.vendors.*
 import org.junit.Assert.fail
 import org.junit.Test
@@ -49,21 +54,21 @@ open class KotlinTimeBaseTest : DatabaseTestsBase() {
     // Checks that old numeric datetime columns works fine with new text representation
     @Test
     fun testSQLiteDateTimeFieldRegression() {
-        val TestDate = object : IntIdTable("TestDate") {
+        val testDate = object : IntIdTable("TestDate") {
             val time = datetime("time").defaultExpression(CurrentDateTime)
         }
 
         withDb(TestDB.SQLITE) {
             try {
                 exec("CREATE TABLE IF NOT EXISTS TestDate (id INTEGER PRIMARY KEY AUTOINCREMENT, \"time\" NUMERIC DEFAULT (CURRENT_TIMESTAMP) NOT NULL);")
-                TestDate.insert { }
-                val year = TestDate.time.year()
-                val month = TestDate.time.month()
-                val day = TestDate.time.day()
-                val hour = TestDate.time.hour()
-                val minute = TestDate.time.minute()
+                testDate.insert { }
+                val year = testDate.time.year()
+                val month = testDate.time.month()
+                val day = testDate.time.day()
+                val hour = testDate.time.hour()
+                val minute = testDate.time.minute()
 
-                val result = TestDate.slice(year, month, day, hour, minute).selectAll().single()
+                val result = testDate.slice(year, month, day, hour, minute).selectAll().single()
 
                 val now = now()
                 assertEquals(now.year, result[year])
@@ -72,56 +77,56 @@ open class KotlinTimeBaseTest : DatabaseTestsBase() {
                 assertEquals(now.hour, result[hour])
                 assertEquals(now.minute, result[minute])
             } finally {
-                SchemaUtils.drop(TestDate)
+                SchemaUtils.drop(testDate)
             }
         }
     }
 
     @Test
     fun `test storing LocalDateTime with nanos`() {
-        val TestDate = object : IntIdTable("TestLocalDateTime") {
+        val testDate = object : IntIdTable("TestLocalDateTime") {
             val time = datetime("time")
         }
-        withTables(TestDate) {
+        withTables(testDate) {
             val dateTimeWithNanos = Clock.System.now().plus(DateTimeUnit.NANOSECOND * 123).toLocalDateTime(TimeZone.currentSystemDefault())
-            TestDate.insert {
-                it[TestDate.time] = dateTimeWithNanos
+            testDate.insert {
+                it[testDate.time] = dateTimeWithNanos
             }
 
-            val dateTimeFromDB = TestDate.selectAll().single()[TestDate.time]
+            val dateTimeFromDB = testDate.selectAll().single()[testDate.time]
             assertEqualDateTime(dateTimeWithNanos, dateTimeFromDB)
         }
     }
 
     @Test
     fun `test selecting Instant using expressions`() {
-        val TestTable = object : Table() {
+        val testTable = object : Table() {
             val ts = timestamp("ts")
             val tsn = timestamp("tsn").nullable()
         }
 
         val now = Clock.System.now()
 
-        withTables(TestTable) {
-            TestTable.insert {
+        withTables(testTable) {
+            testTable.insert {
                 it[ts] = now
                 it[tsn] = now
             }
 
-            val maxTsExpr = TestTable.ts.max()
-            val maxTimestamp = TestTable.slice(maxTsExpr).selectAll().single()[maxTsExpr]
+            val maxTsExpr = testTable.ts.max()
+            val maxTimestamp = testTable.slice(maxTsExpr).selectAll().single()[maxTsExpr]
             assertEqualDateTime(now, maxTimestamp)
 
-            val minTsExpr = TestTable.ts.min()
-            val minTimestamp = TestTable.slice(minTsExpr).selectAll().single()[minTsExpr]
+            val minTsExpr = testTable.ts.min()
+            val minTimestamp = testTable.slice(minTsExpr).selectAll().single()[minTsExpr]
             assertEqualDateTime(now, minTimestamp)
 
-            val maxTsnExpr = TestTable.tsn.max()
-            val maxNullableTimestamp = TestTable.slice(maxTsnExpr).selectAll().single()[maxTsnExpr]
+            val maxTsnExpr = testTable.tsn.max()
+            val maxNullableTimestamp = testTable.slice(maxTsnExpr).selectAll().single()[maxTsnExpr]
             assertEqualDateTime(now, maxNullableTimestamp)
 
-            val minTsnExpr = TestTable.tsn.min()
-            val minNullableTimestamp = TestTable.slice(minTsnExpr).selectAll().single()[minTsnExpr]
+            val minTsnExpr = testTable.tsn.min()
+            val minNullableTimestamp = testTable.slice(minTsnExpr).selectAll().single()[minTsnExpr]
             assertEqualDateTime(now, minNullableTimestamp)
         }
     }
@@ -256,6 +261,46 @@ open class KotlinTimeBaseTest : DatabaseTestsBase() {
             assertEquals(2, createdIn2023.size)
         }
     }
+
+    @Test
+    fun testDateTimeAsJsonB() {
+        val tester = object : Table("tester") {
+            val created = datetime("created")
+            val modified = jsonb<ModifierData>("modified", Json.Default)
+        }
+
+        withTables(excludeSettings = TestDB.allH2TestDB + TestDB.SQLITE + TestDB.SQLSERVER + TestDB.ORACLE, tester) {
+            val dateTimeNow = now()
+            tester.insert {
+                it[created] = dateTimeNow.date.minus(1, DateTimeUnit.YEAR).atTime(0, 0, 0)
+                it[modified] = ModifierData(1, dateTimeNow)
+            }
+            tester.insert {
+                it[created] = dateTimeNow.date.plus(1, DateTimeUnit.YEAR).atTime(0, 0, 0)
+                it[modified] = ModifierData(2, dateTimeNow)
+            }
+
+            val prefix = if (currentDialectTest is PostgreSQLDialect) "" else "."
+
+            // value extracted in same manner it is stored, a json string
+            val modifiedAsString = tester.modified.extract<String>("${prefix}timestamp")
+            val allModifiedAsString = tester.slice(modifiedAsString).selectAll()
+            assertTrue(allModifiedAsString.all { it[modifiedAsString] == dateTimeNow.toString() })
+            // value extracted as json, with implicit LocalDateTime serializer() performing conversions
+            val modifiedAsJson = tester.modified.extract<LocalDateTime>("${prefix}timestamp", toScalar = false)
+            val allModifiedAsJson = tester.slice(modifiedAsJson).selectAll()
+            assertTrue(allModifiedAsJson.all { it[modifiedAsJson] == dateTimeNow })
+
+            // PostgreSQL requires explicit type cast to timestamp for in-DB comparison
+            val dateModified = if (currentDialectTest is PostgreSQLDialect) {
+                tester.modified.extract<LocalDateTime>("${prefix}timestamp").castTo(KotlinLocalDateTimeColumnType())
+            } else {
+                tester.modified.extract<LocalDateTime>("${prefix}timestamp")
+            }
+            val modifiedBeforeCreation = tester.select { dateModified less tester.created }.single()
+            assertEquals(2, modifiedBeforeCreation[tester.modified].userId)
+        }
+    }
 }
 
 fun <T> assertEqualDateTime(d1: T?, d2: T?) {
@@ -295,7 +340,8 @@ private fun assertEqualFractionalPart(nano1: Int, nano2: Int) {
         // accurate to 100 nanoseconds
         is SQLServerDialect -> assertEquals(roundTo100Nanos(nano1), roundTo100Nanos(nano2), "Failed on 1/10th microseconds ${currentDialectTest.name}")
         // microseconds
-        is H2Dialect, is MariaDBDialect, is PostgreSQLDialect, is PostgreSQLNGDialect -> assertEquals(roundToMicro(nano1), roundToMicro(nano2), "Failed on microseconds ${currentDialectTest.name}")
+        is H2Dialect, is MariaDBDialect, is PostgreSQLDialect, is PostgreSQLNGDialect ->
+            assertEquals(roundToMicro(nano1), roundToMicro(nano2), "Failed on microseconds ${currentDialectTest.name}")
         is MysqlDialect ->
             if ((currentDialectTest as? MysqlDialect)?.isFractionDateTimeSupported() == true) {
                 // this should be uncommented, but mysql has different microseconds between save & read
@@ -332,3 +378,6 @@ object CitiesTime : IntIdTable("CitiesTime") {
     val name = varchar("name", 50) // Column<String>
     val local_time = datetime("local_time").nullable() // Column<datetime>
 }
+
+@Serializable
+data class ModifierData(val userId: Int, val timestamp: LocalDateTime)

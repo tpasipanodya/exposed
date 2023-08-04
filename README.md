@@ -1,5 +1,5 @@
 <div align="center">
-<img  align="center" src="./logo.png" alt="Exposed" width="315" /></div>
+<img  align="center" src="./docs/logo.png" alt="Exposed" width="315" /></div>
 <br><br>
 
 ![Build](https://github.com/tpasipanodya/exposed/actions/workflows/.github/workflows/cicd.yml/badge.svg)
@@ -12,17 +12,19 @@ In terms of behavior, this fork is identical to the main [Exposed](https://githu
 library with the exception that it allows configuring default filters (query operators) on tables. Default filters can
 be useful for implementing multi-tenancy & soft deletes.
 
+## Samples
+
+Check out the [samples](samples/README.md) for a quick start.
 
 ## Supported Databases
 Visit [the official Exposed page](https://github.com/JetBrains/Exposed) for an updated list.
-
 
 ## Getting started
 
 
 ```kotlin
-val exposedVersion: String by project
 repositories {
+    
     maven {
 			name = "GitHubPackages"
 			url = uri("https://maven.pkg.github.com/tpasipanodya/exposed")
@@ -32,7 +34,6 @@ repositories {
 			}
 		}
 }
-
 dependencies {
     implementation(platform("io.taff.exposed:exposed-bom:0.9.1"))
     implementation("io.taff.exposed", "exposed-core")

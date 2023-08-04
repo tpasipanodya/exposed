@@ -121,7 +121,7 @@ object SchemaUtils {
     @Deprecated(
         "Will be removed in upcoming releases. Please use overloaded version instead",
         ReplaceWith("createFKey(checkNotNull(reference.foreignKey) { \"${"$"}reference does not reference anything\" })"),
-        DeprecationLevel.ERROR
+        DeprecationLevel.HIDDEN
     )
     fun createFKey(reference: Column<*>): List<String> {
         val foreignKey = reference.foreignKey
@@ -156,9 +156,9 @@ object SchemaUtils {
                     }
                     is String -> when {
                         dialect is PostgreSQLDialect ->
-                            when(column.columnType) {
-                                is VarCharColumnType -> "'${value}'::character varying"
-                                is TextColumnType -> "'${value}'::text"
+                            when (column.columnType) {
+                                is VarCharColumnType -> "'$value'::character varying"
+                                is TextColumnType -> "'$value'::text"
                                 else -> processForDefaultValue(exp)
                             }
                         dialect is OracleDialect || dialect.h2Mode == H2Dialect.H2CompatibilityMode.Oracle ->

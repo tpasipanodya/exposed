@@ -5,10 +5,16 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 plugins {
     kotlin("jvm") apply true
+    id("io.gitlab.arturbosch.detekt") version "1.23.0"
+    id("org.jetbrains.kotlinx.binary-compatibility-validator") version "0.13.2"
     id("org.jetbrains.dokka") version "1.8.20"
     id("maven-publish")
     id ("java")
     idea
+}
+
+apiValidation {
+    ignoredProjects.addAll(listOf("exposed-tests", "exposed-bom"))
 }
 
 repositories {

@@ -28,7 +28,10 @@ style:
     WildcardImport:
         active: false
     MagicNumber:
+        ignoreNamedArgument: true
         ignoreRanges: true
+    ThrowsCount:
+        active: false
 
 complexity:
     LongParameterList:
@@ -42,3 +45,9 @@ complexity:
         thresholdInObjects: 26
     ComplexMethod:
         threshold: 26
+    LongMethod:
+        threshold: 90
+
+naming:
+    ConstructorParameterNaming:
+        active: false

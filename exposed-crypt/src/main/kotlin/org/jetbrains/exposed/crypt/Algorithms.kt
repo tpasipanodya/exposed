@@ -10,6 +10,7 @@ import javax.crypto.spec.SecretKeySpec
 import kotlin.math.ceil
 
 object Algorithms {
+    @Suppress("MagicNumber")
     private fun base64EncodedLength(byteSize: Int): Int = ceil(byteSize.toDouble() / 3).toInt() * 4
     private fun paddingLen(len: Int, blockSize: Int): Int = if (len % blockSize == 0) 0 else blockSize - len % blockSize
     private val base64Decoder = Base64.getDecoder()
@@ -20,32 +21,40 @@ object Algorithms {
     @Suppress("FunctionNaming")
     fun AES_256_PBE_GCM(password: CharSequence, salt: CharSequence): Encryptor {
 
-        return AesBytesEncryptor(password.toString(),
-                                 salt,
-                                 KeyGenerators.secureRandom(AES_256_GCM_BLOCK_LENGTH),
-                                 AesBytesEncryptor.CipherAlgorithm.GCM)
-            .run {
-                Encryptor({ base64Encoder.encodeToString(encrypt(it.toByteArray())) },
-                          { String(decrypt(base64Decoder.decode(it))) },
-                          { inputLen ->
-                              base64EncodedLength(AES_256_GCM_BLOCK_LENGTH + inputLen + AES_256_GCM_TAG_LENGTH) })
-            }
+        return AesBytesEncryptor(
+            password.toString(),
+            salt,
+            KeyGenerators.secureRandom(AES_256_GCM_BLOCK_LENGTH),
+            AesBytesEncryptor.CipherAlgorithm.GCM
+        ).run {
+            Encryptor(
+                { base64Encoder.encodeToString(encrypt(it.toByteArray())) },
+                { String(decrypt(base64Decoder.decode(it))) },
+                { inputLen ->
+                    base64EncodedLength(AES_256_GCM_BLOCK_LENGTH + inputLen + AES_256_GCM_TAG_LENGTH)
+                }
+            )
+        }
     }
 
     private const val AES_256_CBC_BLOCK_LENGTH = 16
     @Suppress("FunctionNaming")
     fun AES_256_PBE_CBC(password: CharSequence, salt: CharSequence): Encryptor {
 
-        return AesBytesEncryptor(password.toString(),
-                                 salt,
-                                 KeyGenerators.secureRandom(AES_256_CBC_BLOCK_LENGTH))
-            .run {
-                Encryptor({ base64Encoder.encodeToString(encrypt(it.toByteArray())) },
-                          { String(decrypt(base64Decoder.decode(it))) },
-                          { inputLen ->
-                              val paddingSize = (AES_256_CBC_BLOCK_LENGTH - inputLen % AES_256_CBC_BLOCK_LENGTH)
-                              base64EncodedLength(AES_256_CBC_BLOCK_LENGTH + inputLen + paddingSize) })
-            }
+        return AesBytesEncryptor(
+            password.toString(),
+            salt,
+            KeyGenerators.secureRandom(AES_256_CBC_BLOCK_LENGTH)
+        ).run {
+            Encryptor(
+                { base64Encoder.encodeToString(encrypt(it.toByteArray())) },
+                { String(decrypt(base64Decoder.decode(it))) },
+                { inputLen ->
+                    val paddingSize = (AES_256_CBC_BLOCK_LENGTH - inputLen % AES_256_CBC_BLOCK_LENGTH)
+                    base64EncodedLength(AES_256_CBC_BLOCK_LENGTH + inputLen + paddingSize)
+                }
+            )
+        }
     }
 
     private const val BLOW_FISH_BLOCK_LENGTH = 8
@@ -68,12 +77,13 @@ object Algorithms {
                 val decryptedBytes = cipher.doFinal(base64Decoder.decode(encryptedText))
                 String(decryptedBytes)
             },
-            { base64EncodedLength(it + paddingLen(it, BLOW_FISH_BLOCK_LENGTH)) })
+            { base64EncodedLength(it + paddingLen(it, BLOW_FISH_BLOCK_LENGTH)) }
+        )
     }
 
     private const val TRIPLE_DES_KEY_LENGTH = 24
     private const val TRIPLE_DES_BLOCK_LENGTH = 8
-    @Suppress("FunctionNaming")
+    @Suppress("FunctionNaming", "UseRequire")
     fun TRIPLE_DES(secretKey: CharSequence): Encryptor {
         if (secretKey.toString().toByteArray().size != TRIPLE_DES_KEY_LENGTH) {
             throw IllegalArgumentException("secretKey must have 24 bytes")
@@ -101,6 +111,7 @@ object Algorithms {
                 val decryptedBytes = cipher.doFinal(EncodingUtils.subArray(decodedBytes, TRIPLE_DES_BLOCK_LENGTH, decodedBytes.size))
                 String(decryptedBytes)
             },
-            { base64EncodedLength(TRIPLE_DES_BLOCK_LENGTH + it + paddingLen(it, TRIPLE_DES_BLOCK_LENGTH)) })
+            { base64EncodedLength(TRIPLE_DES_BLOCK_LENGTH + it + paddingLen(it, TRIPLE_DES_BLOCK_LENGTH)) }
+        )
     }
 }

@@ -6,19 +6,13 @@ import org.jetbrains.exposed.dao.id.IdTable
 import org.jetbrains.exposed.exceptions.DuplicateColumnException
 import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import org.jetbrains.exposed.sql.transactions.TransactionManager
-import org.jetbrains.exposed.sql.vendors.OracleDialect
-import org.jetbrains.exposed.sql.vendors.PostgreSQLDialect
-import org.jetbrains.exposed.sql.vendors.SQLiteDialect
-import org.jetbrains.exposed.sql.vendors.currentDialect
-import org.jetbrains.exposed.sql.vendors.currentDialectIfAvailable
-import org.jetbrains.exposed.sql.vendors.inProperCase
+import org.jetbrains.exposed.sql.vendors.*
 import java.math.BigDecimal
 import java.util.*
 import kotlin.reflect.KClass
 import kotlin.reflect.KMutableProperty1
 import kotlin.reflect.KParameter
 import kotlin.reflect.KProperty1
-import kotlin.reflect.full.isSubclassOf
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.full.primaryConstructor
 
@@ -198,12 +192,15 @@ class Join(
             onColumn != null && otherColumn != null -> {
                 join(otherTable, joinType, onColumn, otherColumn, additionalConstraint)
             }
+
             onColumn != null || otherColumn != null -> {
                 error("Can't prepare join on $table and $otherTable when only column from one side provided.")
             }
+
             additionalConstraint != null -> {
                 join(otherTable, joinType, emptyList(), additionalConstraint)
             }
+
             else -> {
                 implicitJoin(otherTable, joinType)
             }
@@ -263,10 +260,12 @@ class Join(
             joinType != JoinType.CROSS && fkKeys.isEmpty() -> {
                 error("Cannot join with $otherTable as there is no matching primary key/foreign key pair and constraint missing")
             }
+
             fkKeys.any { it.second.size > 1 } -> {
                 val references = fkKeys.joinToString(" & ") { "${it.first} -> ${it.second.joinToString()}" }
                 error("Cannot join with $otherTable as there is multiple primary key <-> foreign key references.\n$references")
             }
+
             else -> {
                 val cond = fkKeys.filter { it.second.size == 1 }.map { it.first to it.second.single() }
                 join(otherTable, joinType, cond, null)
@@ -357,6 +356,7 @@ open class Table(name: String = "") : ColumnSet(), DdlAware {
     open fun stripDefaultFilter() = TableWithDefaultFilterStriped(this)
 
     internal val tableNameWithoutScheme: String get() = tableName.substringAfter(".")
+
     // Table name may contain quotes, remove those before appending
     internal val tableNameWithoutSchemeSanitized: String get() = tableNameWithoutScheme.replace("\"", "").replace("'", "")
 
@@ -453,7 +453,7 @@ open class Table(name: String = "") : ColumnSet(), DdlAware {
         val name: String by lazy { name ?: "pk_$tableNameWithoutSchemeSanitized" }
 
         constructor(firstColumn: Column<*>, vararg columns: Column<*>, name: String? = null) :
-            this(arrayOf(firstColumn, *columns), name)
+            this(arrayOf(firstColumn) + columns.asList(), name)
 
         init {
             columns.sortWith(compareBy { !it.columnType.isAutoInc })
@@ -500,25 +500,25 @@ open class Table(name: String = "") : ColumnSet(), DdlAware {
     fun byte(name: String): Column<Byte> = registerColumn(name, ByteColumnType())
 
     /** Creates a numeric column, with the specified [name], for storing 1-byte unsigned integers. */
-        fun ubyte(name: String): Column<UByte> = registerColumn(name, UByteColumnType())
+    fun ubyte(name: String): Column<UByte> = registerColumn(name, UByteColumnType())
 
     /** Creates a numeric column, with the specified [name], for storing 2-byte integers. */
     fun short(name: String): Column<Short> = registerColumn(name, ShortColumnType())
 
     /** Creates a numeric column, with the specified [name], for storing 2-byte unsigned integers. */
-        fun ushort(name: String): Column<UShort> = registerColumn(name, UShortColumnType())
+    fun ushort(name: String): Column<UShort> = registerColumn(name, UShortColumnType())
 
     /** Creates a numeric column, with the specified [name], for storing 4-byte integers. */
     fun integer(name: String): Column<Int> = registerColumn(name, IntegerColumnType())
 
     /** Creates a numeric column, with the specified [name], for storing 4-byte unsigned integers. */
-        fun uinteger(name: String): Column<UInt> = registerColumn(name, UIntegerColumnType())
+    fun uinteger(name: String): Column<UInt> = registerColumn(name, UIntegerColumnType())
 
     /** Creates a numeric column, with the specified [name], for storing 8-byte integers. */
     fun long(name: String): Column<Long> = registerColumn(name, LongColumnType())
 
     /** Creates a numeric column, with the specified [name], for storing 8-byte unsigned integers. */
-        fun ulong(name: String): Column<ULong> = registerColumn(name, ULongColumnType())
+    fun ulong(name: String): Column<ULong> = registerColumn(name, ULongColumnType())
 
     /** Creates a numeric column, with the specified [name], for storing 4-byte (single precision) floating-point numbers. */
     fun float(name: String): Column<Float> = registerColumn(name, FloatColumnType())
@@ -644,31 +644,21 @@ open class Table(name: String = "") : ColumnSet(), DdlAware {
         enumerationByName(name, length, T::class)
 
     /**
-     * Creates an enumeration column with custom SQL type.
-     * The main usage is to use a database specific type.
+     * Creates an enumeration column, with the custom SQL type [sql], for storing enums of type [T] using this database-specific type.
      *
-     * See [https://github.com/JetBrains/Exposed/wiki/DataTypes#how-to-use-database-enum-types] for more details.
+     * See [Wiki](https://github.com/JetBrains/Exposed/wiki/DataTypes#how-to-use-database-enum-types) for more details.
      *
-     * @param name The column name
-     * @param sql A SQL definition for the column
-     * @param fromDb A lambda to convert a value received from a database to an enumeration instance
-     * @param toDb A lambda to convert an enumeration instance to a value which will be stored to a database
+     * @param name Name of the column
+     * @param sql SQL definition for the column
+     * @param fromDb Function that converts a value received from a database to an enumeration instance [T]
+     * @param toDb Function that converts an enumeration instance [T] to a value that will be stored to a database
      */
-    @Suppress("UNCHECKED_CAST")
     fun <T : Enum<T>> customEnumeration(
         name: String,
         sql: String? = null,
         fromDb: (Any) -> T,
         toDb: (T) -> Any
-    ): Column<T> = registerColumn(
-        name,
-        object : StringColumnType() {
-            override fun sqlType(): String = sql ?: error("Column $name should exists in database ")
-            override fun valueFromDB(value: Any): T = if (value::class.isSubclassOf(Enum::class)) value as T else fromDb(value)
-            override fun notNullValueToDB(value: Any): Any = toDb(value as T)
-            override fun nonNullValueToString(value: Any): String = super.nonNullValueToString(notNullValueToDB(value))
-        }
-    )
+    ): Column<T> = registerColumn(name, CustomEnumerationColumnType(name, sql, fromDb, toDb))
 
     // Auto-generated values
 
@@ -898,7 +888,6 @@ open class Table(name: String = "") : ColumnSet(), DdlAware {
      *
      * @see ReferenceOption
      */
-    @Suppress("UNCHECKED_CAST")
     @JvmName("optReferenceByIdColumn")
     fun <T : Comparable<T>, E : EntityID<T>> optReference(
         name: String,
@@ -953,21 +942,36 @@ open class Table(name: String = "") : ColumnSet(), DdlAware {
     /**
      * Creates an index.
      *
-     * @param columns Columns that compose the index.
      * @param isUnique Whether the index is unique or not.
+     * @param columns Columns that compose the index.
      */
-    fun index(isUnique: Boolean = false, vararg columns: Column<*>): Unit = index(null, isUnique, *columns)
+    fun index(isUnique: Boolean = false, vararg columns: Column<*>) { index(null, isUnique, *columns) }
 
     /**
      * Creates an index.
      *
      * @param customIndexName Name of the index.
-     * @param columns Columns that compose the index.
      * @param isUnique Whether the index is unique or not.
+     * @param columns Columns that compose the index.
+     * @param functions Functions that compose the index.
      * @param indexType A custom index type (e.g., "BTREE" or "HASH").
+     * @param filterCondition Index filtering conditions (also known as "partial index") declaration.
      */
-    fun index(customIndexName: String? = null, isUnique: Boolean = false, vararg columns: Column<*>, indexType: String? = null) {
-        _indices.add(Index(columns.toList(), isUnique, customIndexName, indexType = indexType))
+    fun index(
+        customIndexName: String? = null,
+        isUnique: Boolean = false,
+        vararg columns: Column<*>,
+        functions: List<ExpressionWithColumnType<*>>? = null,
+        indexType: String? = null,
+        filterCondition: FilterCondition = null
+    ) {
+        _indices.add(
+            Index(
+                columns.toList(), isUnique, customIndexName, indexType,
+                filterCondition?.invoke(SqlExpressionBuilder),
+                functions, functions?.let { this }
+            )
+        )
     }
 
     /**
@@ -984,22 +988,35 @@ open class Table(name: String = "") : ColumnSet(), DdlAware {
      *
      * @param customIndexName Name of the index.
      */
-    fun <T> Column<T>.uniqueIndex(customIndexName: String? = null): Column<T> = index(customIndexName, true)
+    fun <T> Column<T>.uniqueIndex(customIndexName: String? = null): Column<T> =
+        index(customIndexName, true)
 
     /**
      * Creates a unique index.
      *
      * @param columns Columns that compose the index.
+     * @param filterCondition Index filtering conditions (also known as "partial index") declaration.
      */
-    fun uniqueIndex(vararg columns: Column<*>): Unit = index(null, true, *columns)
+    fun uniqueIndex(vararg columns: Column<*>, filterCondition: FilterCondition = null) {
+        index(null, true, *columns, filterCondition = filterCondition)
+    }
 
     /**
      * Creates a unique index.
      *
      * @param customIndexName Name of the index.
      * @param columns Columns that compose the index.
+     * @param functions Functions that compose the index.
+     * @param filterCondition Index filtering conditions (also known as "partial index") declaration.
      */
-    fun uniqueIndex(customIndexName: String? = null, vararg columns: Column<*>): Unit = index(customIndexName, true, *columns)
+    fun uniqueIndex(
+        customIndexName: String? = null,
+        vararg columns: Column<*>,
+        functions: List<ExpressionWithColumnType<*>>? = null,
+        filterCondition: FilterCondition = null
+    ) {
+        index(customIndexName, true, *columns, functions = functions, filterCondition = filterCondition)
+    }
 
     /**
      * Creates a composite foreign key.
@@ -1096,6 +1113,7 @@ open class Table(name: String = "") : ColumnSet(), DdlAware {
         is ColumnType -> {
             this.withColumnType(AutoIncColumnType(columnType, idSeqName, "${tableName}_${name}_seq"))
         }
+
         else -> error("Unsupported column type for auto-increment $columnType")
     }
 

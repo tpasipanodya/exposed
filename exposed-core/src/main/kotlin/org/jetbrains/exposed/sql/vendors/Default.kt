@@ -82,6 +82,7 @@ abstract class DataTypeProvider {
     /** Binary type for storing [UUID]. */
     open fun uuidType(): String = "BINARY(16)"
 
+    @Suppress("MagicNumber")
     open fun uuidToDB(value: UUID): Any =
         ByteBuffer.allocate(16).putLong(value.mostSignificantBits).putLong(value.leastSignificantBits).array()
 
@@ -106,6 +107,15 @@ abstract class DataTypeProvider {
 
     /** Returns the boolean value of the specified SQL [value]. */
     open fun booleanFromStringToBoolean(value: String): Boolean = value.toBoolean()
+
+    // JSON types
+
+    /** Data type for storing JSON in a non-binary text format. */
+    open fun jsonType(): String = "JSON"
+
+    /** Data type for storing JSON in a decomposed binary format. */
+    open fun jsonBType(): String =
+        throw UnsupportedByDialectException("This vendor does not support binary JSON data type", currentDialect)
 
     // Misc.
 
@@ -383,6 +393,120 @@ abstract class FunctionProvider {
         append("CAST(", expr, " AS ", type.sqlType(), ")")
     }
 
+    // Aggregate Functions for Statistics
+
+    /**
+     * SQL function that returns the population standard deviation of the non-null input values,
+     * or `null` if there are no non-null values.
+     *
+     * @param expression Expression from which the population standard deviation is calculated.
+     * @param queryBuilder Query builder to append the SQL function to.
+     */
+    open fun <T> stdDevPop(expression: Expression<T>, queryBuilder: QueryBuilder): Unit = queryBuilder {
+        append("STDDEV_POP(", expression, ")")
+    }
+
+    /**
+     * SQL function that returns the sample standard deviation of the non-null input values,
+     * or `null` if there are no non-null values.
+     *
+     * @param expression Expression from which the sample standard deviation is calculated.
+     * @param queryBuilder Query builder to append the SQL function to.
+     */
+    open fun <T> stdDevSamp(expression: Expression<T>, queryBuilder: QueryBuilder): Unit = queryBuilder {
+        append("STDDEV_SAMP(", expression, ")")
+    }
+
+    /**
+     * SQL function that returns the population variance of the non-null input values (square of the population standard deviation),
+     * or `null` if there are no non-null values.
+     *
+     * @param expression Expression from which the population variance is calculated.
+     * @param queryBuilder Query builder to append the SQL function to.
+     */
+    open fun <T> varPop(expression: Expression<T>, queryBuilder: QueryBuilder): Unit = queryBuilder {
+        append("VAR_POP(", expression, ")")
+    }
+
+    /**
+     * SQL function that returns the sample variance of the non-null input values (square of the sample standard deviation),
+     * or `null` if there are no non-null values.
+     *
+     * @param expression Expression from which the sample variance is calculated.
+     * @param queryBuilder Query builder to append the SQL function to.
+     */
+    open fun <T> varSamp(expression: Expression<T>, queryBuilder: QueryBuilder): Unit = queryBuilder {
+        append("VAR_SAMP(", expression, ")")
+    }
+
+    // JSON Functions
+
+    /**
+     * SQL function that extracts data from a JSON object at the specified [path], either as a JSON representation or as a scalar value.
+     *
+     * @param expression Expression from which to extract JSON subcomponents matched by [path].
+     * @param path String(s) representing JSON path/keys that match fields to be extracted.
+     * **Note:** Multiple [path] arguments are not supported by all vendors; please check the documentation.
+     * @param toScalar If `true`, the extracted result is a scalar or text value; otherwise, it is a JSON object.
+     * @param jsonType Column type of [expression] to check, if casting to JSONB is required.
+     * @param queryBuilder Query builder to append the SQL function to.
+     */
+    open fun <T> jsonExtract(
+        expression: Expression<T>,
+        vararg path: String,
+        toScalar: Boolean,
+        jsonType: IColumnType,
+        queryBuilder: QueryBuilder
+    ) {
+        throw UnsupportedByDialectException(
+            "There's no generic SQL for JSON_EXTRACT. There must be a vendor specific implementation", currentDialect
+        )
+    }
+
+    /**
+     * SQL function that checks whether a [candidate] expression is contained within a JSON [target].
+     *
+     * @param target JSON expression being searched.
+     * @param candidate Expression to search for in [target].
+     * @param path String representing JSON path/keys that match specific fields to search for [candidate].
+     * **Note:** A [path] argument is not supported by all vendors; please check the documentation.
+     * @param jsonType Column type of [target] to check, if casting to JSONB is required.
+     * @param queryBuilder Query builder to append the SQL function to.
+     */
+    open fun jsonContains(
+        target: Expression<*>,
+        candidate: Expression<*>,
+        path: String?,
+        jsonType: IColumnType,
+        queryBuilder: QueryBuilder
+    ) {
+        throw UnsupportedByDialectException(
+            "There's no generic SQL for JSON_CONTAINS. There must be a vendor specific implementation", currentDialect
+        )
+    }
+
+    /**
+     * SQL function that checks whether data exists within a JSON [expression] at the specified [path].
+     *
+     * @param expression JSON expression being checked.
+     * @param path String(s) representing JSON path/keys that match fields to check for existing data.
+     * **Note:** Multiple [path] arguments are not supported by all vendors; please check the documentation.
+     * @param optional String representing any optional vendor-specific clause or argument.
+     * @param jsonType Column type of [expression] to check, if casting to JSONB is required.
+     * @param queryBuilder Query builder to append the SQL function to.
+     */
+    open fun jsonExists(
+        expression: Expression<*>,
+        vararg path: String,
+        optional: String?,
+        jsonType: IColumnType,
+        queryBuilder: QueryBuilder
+    ) {
+        throw UnsupportedByDialectException(
+            "There's no generic SQL for JSON_EXISTS. There must be a vendor specific implementation", currentDialect
+        )
+    }
+
     // Commands
     @Suppress("VariableNaming")
     open val DEFAULT_VALUE_EXPRESSION: String = "DEFAULT VALUES"
@@ -496,18 +620,149 @@ abstract class FunctionProvider {
     }
 
     /**
-     * Returns the SQL command that insert a new row into a table, but if another row with the same primary/unique key already exists then it updates the values of that row instead.
-     * This operation is also known as "Insert or update".
+     * Returns the SQL command that either inserts a new row into a table, or, if insertion would violate a unique constraint,
+     * first deletes the existing row before inserting a new row.
      *
      * **Note:** This operation is not supported by all vendors, please check the documentation.
      *
-     * @param data Pairs of column to replace and values to replace with.
+     * @param table Table to either insert values into or delete values from then insert into.
+     * @param columns Columns to replace the values in.
+     * @param expression Expression with the values to use in replace.
+     * @param transaction Transaction where the operation is executed.
      */
     open fun replace(
         table: Table,
+        columns: List<Column<*>>,
+        expression: String,
+        transaction: Transaction,
+        prepared: Boolean = true
+    ): String = transaction.throwUnsupportedException("There's no generic SQL for REPLACE. There must be a vendor specific implementation.")
+
+    /**
+     * Returns the SQL command that either inserts a new row into a table, or updates the existing row if insertion would violate a unique constraint.
+     *
+     * **Note:** Vendors that do not support this operation directly implement the standard MERGE USING command.
+     *
+     * @param table Table to either insert values into or update values from.
+     * @param data Pairs of columns to use for insert or update and values to insert or update.
+     * @param onUpdate List of pairs of specific columns to update and the expressions to update them with.
+     * @param where Condition that determines which rows to update, if a unique violation is found.
+     * @param transaction Transaction where the operation is executed.
+     */
+    open fun upsert(
+        table: Table,
         data: List<Pair<Column<*>, Any?>>,
-        transaction: Transaction
-    ): String = transaction.throwUnsupportedException("There's no generic SQL for REPLACE. There must be vendor specific implementation.")
+        onUpdate: List<Pair<Column<*>, Expression<*>>>?,
+        where: Op<Boolean>?,
+        transaction: Transaction,
+        vararg keys: Column<*>
+    ): String {
+        if (where != null) {
+            transaction.throwUnsupportedException("MERGE implementation of UPSERT doesn't support single WHERE clause")
+        }
+        val keyColumns = getKeyColumnsForUpsert(table, *keys)
+        if (keyColumns.isNullOrEmpty()) {
+            transaction.throwUnsupportedException("UPSERT requires a unique key or constraint as a conflict target")
+        }
+
+        val dataColumns = data.unzip().first
+        val autoIncColumn = table.autoIncColumn
+        val nextValExpression = autoIncColumn?.autoIncColumnType?.nextValExpression
+        val dataColumnsWithoutAutoInc = autoIncColumn?.let { dataColumns - autoIncColumn } ?: dataColumns
+        val updateColumns = dataColumns.filter { it !in keyColumns }
+
+        return with(QueryBuilder(true)) {
+            +"MERGE INTO "
+            table.describe(transaction, this)
+            +" T USING "
+            data.appendTo(prefix = "(VALUES (", postfix = ")") { (column, value) ->
+                registerArgument(column, value)
+            }
+            dataColumns.appendTo(prefix = ") S(", postfix = ")") { column ->
+                append(transaction.identity(column))
+            }
+
+            +" ON "
+            keyColumns.appendTo(separator = " AND ", prefix = "(", postfix = ")") { column ->
+                val columnName = transaction.identity(column)
+                append("T.$columnName=S.$columnName")
+            }
+
+            +" WHEN MATCHED THEN"
+            appendUpdateToUpsertClause(table, updateColumns, onUpdate, transaction, isAliasNeeded = true)
+
+            +" WHEN NOT MATCHED THEN INSERT "
+            dataColumnsWithoutAutoInc.appendTo(prefix = "(") { column ->
+                append(transaction.identity(column))
+            }
+            nextValExpression?.let {
+                append(", ${transaction.identity(autoIncColumn)}")
+            }
+            dataColumnsWithoutAutoInc.appendTo(prefix = ") VALUES(") { column ->
+                append("S.${transaction.identity(column)}")
+            }
+            nextValExpression?.let {
+                append(", $it")
+            }
+            +")"
+            toString()
+        }
+    }
+
+    /**
+     * Returns the columns to be used in the conflict condition of an upsert statement.
+     */
+    protected fun getKeyColumnsForUpsert(table: Table, vararg keys: Column<*>): List<Column<*>>? {
+        return keys.toList().ifEmpty {
+            table.primaryKey?.columns?.toList() ?: table.indices.firstOrNull { it.unique }?.columns
+        }
+    }
+
+    /**
+     * Appends the complete default SQL insert (no ignore) command to [this] QueryBuilder.
+     */
+    protected fun QueryBuilder.appendInsertToUpsertClause(table: Table, data: List<Pair<Column<*>, Any?>>, transaction: Transaction) {
+        val valuesSql = if (data.isEmpty()) {
+            ""
+        } else {
+            data.appendTo(QueryBuilder(true), prefix = "VALUES (", postfix = ")") { (column, value) ->
+                registerArgument(column, value)
+            }.toString()
+        }
+        val insertStatement = insert(false, table, data.unzip().first, valuesSql, transaction)
+
+        +insertStatement
+    }
+
+    /**
+     * Appends an SQL update command for a derived table (with or without alias identifiers) to [this] QueryBuilder.
+     */
+    protected fun QueryBuilder.appendUpdateToUpsertClause(
+        table: Table,
+        updateColumns: List<Column<*>>,
+        onUpdate: List<Pair<Column<*>, Expression<*>>>?,
+        transaction: Transaction,
+        isAliasNeeded: Boolean
+    ) {
+        +" UPDATE SET "
+        onUpdate?.appendTo { (columnToUpdate, updateExpression) ->
+            if (isAliasNeeded) {
+                val aliasExpression = updateExpression.toString().replace(transaction.identity(table), "T")
+                append("T.${transaction.identity(columnToUpdate)}=$aliasExpression")
+            } else {
+                append("${transaction.identity(columnToUpdate)}=$updateExpression")
+            }
+        } ?: run {
+            updateColumns.appendTo { column ->
+                val columnName = transaction.identity(column)
+                if (isAliasNeeded) {
+                    append("T.$columnName=S.$columnName")
+                } else {
+                    append("$columnName=EXCLUDED.$columnName")
+                }
+            }
+        }
+    }
 
     /**
      * Returns the SQL command that deletes one or more rows of a table.
@@ -617,6 +872,9 @@ interface DatabaseDialect {
     val supportsSequenceAsGeneratedKeys: Boolean get() = supportsCreateSequence
     val supportsOnlyIdentifiersInGeneratedKeys: Boolean get() = false
 
+    /** Returns `true` if the dialect supports an upsert operation returning an affected-row value of 0, 1, or 2. */
+    val supportsTernaryAffectedRowValues: Boolean get() = false
+
     /** Returns`true` if the dialect supports schema creation. */
     val supportsCreateSchema: Boolean get() = true
 
@@ -626,6 +884,9 @@ interface DatabaseDialect {
     val supportsDualTableConcept: Boolean get() = false
 
     val supportsOrderByNullsFirstLast: Boolean get() = false
+
+    /** Returns `true` if the dialect supports window function definitions with GROUPS mode in frame clause */
+    val supportsWindowFrameGroupsMode: Boolean get() = false
 
     val likePatternSpecialChars: Map<Char, Char?> get() = defaultLikePatternSpecialChars
 
@@ -676,7 +937,7 @@ interface DatabaseDialect {
     fun createIndex(index: Index): String
 
     /** Returns the SQL command that drops the specified [indexName] from the specified [tableName]. */
-    fun dropIndex(tableName: String, indexName: String): String
+    fun dropIndex(tableName: String, indexName: String, isUnique: Boolean, isPartialOrFunctional: Boolean): String
 
     /** Returns the SQL command that modifies the specified [column]. */
     fun modifyColumn(column: Column<*>, columnDiff: ColumnDiff): List<String>
@@ -747,18 +1008,17 @@ sealed class ForUpdateOption(open val querySuffix: String) {
             final override val querySuffix: String = preparedQuerySuffix
         }
 
-        class ForUpdate(mode: MODE? = null, vararg ofTables: Table) : ForUpdateBase("FOR UPDATE", mode, *ofTables)
+        class ForUpdate(mode: MODE? = null, vararg ofTables: Table) : ForUpdateBase("FOR UPDATE", mode, ofTables = ofTables)
 
-
-        open class ForNoKeyUpdate(mode: MODE? = null, vararg ofTables: Table) : ForUpdateBase("FOR NO KEY UPDATE", mode, *ofTables) {
+        open class ForNoKeyUpdate(mode: MODE? = null, vararg ofTables: Table) : ForUpdateBase("FOR NO KEY UPDATE", mode, ofTables = ofTables) {
             companion object : ForNoKeyUpdate()
         }
 
-        open class ForShare(mode: MODE? = null, vararg ofTables: Table) : ForUpdateBase("FOR SHARE", mode, *ofTables) {
+        open class ForShare(mode: MODE? = null, vararg ofTables: Table) : ForUpdateBase("FOR SHARE", mode, ofTables = ofTables) {
             companion object : ForShare()
         }
 
-        open class ForKeyShare(mode: MODE? = null, vararg ofTables: Table) : ForUpdateBase("FOR KEY SHARE", mode, *ofTables) {
+        open class ForKeyShare(mode: MODE? = null, vararg ofTables: Table) : ForUpdateBase("FOR KEY SHARE", mode, ofTables = ofTables) {
             companion object : ForKeyShare()
         }
     }
@@ -780,6 +1040,10 @@ abstract class VendorDialect(
     override val functionProvider: FunctionProvider
 ) : DatabaseDialect {
 
+    protected val identifierManager
+        get() = TransactionManager.current().db.identifierManager
+
+    @Suppress("UnnecessaryAbstractClass")
     abstract class DialectNameProvider(val dialectName: String)
 
     /* Cached values */
@@ -883,30 +1147,86 @@ abstract class VendorDialect(
         resetCaches()
     }
 
+    fun filterCondition(index: Index): String? {
+        return index.filterCondition?.let {
+            when (currentDialect) {
+                is PostgreSQLDialect, is SQLServerDialect, is SQLiteDialect -> {
+                    QueryBuilder(false)
+                        .append(" WHERE ").append(it)
+                        .toString()
+                }
+                else -> {
+                    exposedLogger.warn("Index creation with a filter condition is not supported in ${currentDialect.name}")
+                    return null
+                }
+            }
+        } ?: ""
+    }
+
+    private fun indexFunctionToString(function: Function<*>): String {
+        val baseString = function.toString()
+        return when (currentDialect) {
+            // SQLite & Oracle do not support "." operator (with table prefix) in index expressions
+            is SQLiteDialect, is OracleDialect -> baseString.replace(Regex("""^*[^( ]*\."""), "")
+            is MysqlDialect -> if (baseString.first() != '(') "($baseString)" else baseString
+            else -> baseString
+        }
+    }
+
+    /**
+     * Uniqueness might be required for foreign key constraints.
+     *
+     * In PostgreSQL (https://www.postgresql.org/docs/current/indexes-unique.html), UNIQUE means B-tree only.
+     * Unique constraints can not be partial
+     * Unique indexes can be partial
+     */
     override fun createIndex(index: Index): String {
         val t = TransactionManager.current()
         val quotedTableName = t.identity(index.table)
         val quotedIndexName = t.db.identifierManager.cutIfNecessaryAndQuote(index.indexName)
-        val columnsList = index.columns.joinToString(prefix = "(", postfix = ")") { t.identity(it) }
-        return when {
-            index.unique -> {
-                "ALTER TABLE $quotedTableName ADD CONSTRAINT $quotedIndexName UNIQUE $columnsList"
+        val keyFields = index.columns.plus(index.functions ?: emptyList())
+        val fieldsList = keyFields.joinToString(prefix = "(", postfix = ")") {
+            when (it) {
+                is Column<*> -> t.identity(it)
+                is Function<*> -> indexFunctionToString(it)
+                // returned by existingIndices() mapping String metadata to stringLiteral()
+                is LiteralOp<*> -> it.value.toString().trim('"')
+                else -> {
+                    exposedLogger.warn("Unexpected defining key field will be passed as String: $it")
+                    it.toString()
+                }
             }
+        }
+        val includesOnlyColumns = index.functions?.isEmpty() != false
+        val maybeFilterCondition = filterCondition(index) ?: return ""
+
+        return when {
+            // unique and no filter -> constraint, the type is not supported
+            index.unique && maybeFilterCondition.isEmpty() && includesOnlyColumns -> {
+                "ALTER TABLE $quotedTableName ADD CONSTRAINT $quotedIndexName UNIQUE $fieldsList"
+            }
+            // unique and filter -> index only, the type is not supported
+            index.unique -> {
+                "CREATE UNIQUE INDEX $quotedIndexName ON $quotedTableName $fieldsList$maybeFilterCondition"
+            }
+            // type -> can't be unique or constraint
             index.indexType != null -> {
-                createIndexWithType(name = quotedIndexName, table = quotedTableName, columns = columnsList, type = index.indexType)
+                createIndexWithType(
+                    name = quotedIndexName, table = quotedTableName,
+                    columns = fieldsList, type = index.indexType, filterCondition = maybeFilterCondition
+                )
             }
             else -> {
-                "CREATE INDEX $quotedIndexName ON $quotedTableName $columnsList"
+                "CREATE INDEX $quotedIndexName ON $quotedTableName $fieldsList$maybeFilterCondition"
             }
         }
     }
 
-    protected open fun createIndexWithType(name: String, table: String, columns: String, type: String): String {
-        return "CREATE INDEX $name ON $table $columns USING $type"
+    protected open fun createIndexWithType(name: String, table: String, columns: String, type: String, filterCondition: String): String {
+        return "CREATE INDEX $name ON $table $columns USING $type$filterCondition"
     }
 
-    override fun dropIndex(tableName: String, indexName: String): String {
-        val identifierManager = TransactionManager.current().db.identifierManager
+    override fun dropIndex(tableName: String, indexName: String, isUnique: Boolean, isPartialOrFunctional: Boolean): String {
         return "ALTER TABLE ${identifierManager.quoteIfNecessary(tableName)} DROP CONSTRAINT ${identifierManager.quoteIfNecessary(indexName)}"
     }
 

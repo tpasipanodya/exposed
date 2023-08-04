@@ -36,8 +36,15 @@ internal object OracleDataTypeProvider : DataTypeProvider() {
     override fun booleanFromStringToBoolean(value: String): Boolean = try {
         value.toLong() != 0L
     } catch (ex: NumberFormatException) {
-        error("Unexpected value of type Boolean: $value")
+        @Suppress("SwallowedException")
+        try {
+            value.lowercase().toBooleanStrict()
+        } catch (ex: IllegalArgumentException) {
+            error("Unexpected value of type Boolean: $value")
+        }
     }
+
+    override fun jsonType(): String = "VARCHAR2(4000)"
 
     override fun processForDefaultValue(e: Expression<*>): String = when {
         e is LiteralOp<*> && (e.columnType as? IDateColumnType)?.hasTimePart == false -> "DATE ${super.processForDefaultValue(e)}"
@@ -142,6 +149,44 @@ internal object OracleFunctionProvider : FunctionProvider() {
         append(")")
     }
 
+    override fun <T> jsonExtract(
+        expression: Expression<T>,
+        vararg path: String,
+        toScalar: Boolean,
+        jsonType: IColumnType,
+        queryBuilder: QueryBuilder
+    ) {
+        if (path.size > 1) {
+            TransactionManager.current().throwUnsupportedException("Oracle does not support multiple JSON path arguments")
+        }
+        queryBuilder {
+            append(if (toScalar) "JSON_VALUE" else "JSON_QUERY")
+            append("(", expression, ", ")
+            append("'$", path.firstOrNull() ?: "", "'")
+            append(")")
+        }
+    }
+
+    override fun jsonExists(
+        expression: Expression<*>,
+        vararg path: String,
+        optional: String?,
+        jsonType: IColumnType,
+        queryBuilder: QueryBuilder
+    ) {
+        if (path.size > 1) {
+            TransactionManager.current().throwUnsupportedException("Oracle does not support multiple JSON path arguments")
+        }
+        queryBuilder {
+            append("JSON_EXISTS(", expression, ", ")
+            append("'$", path.firstOrNull() ?: "", "'")
+            optional?.let {
+                append(" $it")
+            }
+            append(")")
+        }
+    }
+
     override fun update(
         target: Table,
         columnsAndValues: List<Pair<Column<*>, Any?>>,
@@ -197,6 +242,28 @@ internal object OracleFunctionProvider : FunctionProvider() {
         toString()
     }
 
+    override fun upsert(
+        table: Table,
+        data: List<Pair<Column<*>, Any?>>,
+        onUpdate: List<Pair<Column<*>, Expression<*>>>?,
+        where: Op<Boolean>?,
+        transaction: Transaction,
+        vararg keys: Column<*>
+    ): String {
+        val statement = super.upsert(table, data, onUpdate, where, transaction, *keys)
+
+        val dualTable = data.appendTo(QueryBuilder(true), prefix = "(SELECT ", postfix = " FROM DUAL) S") { (column, value) ->
+            registerArgument(column, value)
+            +" AS "
+            append(transaction.identity(column))
+        }.toString()
+
+        val (leftReserved, rightReserved) = " USING " to " ON "
+        val leftBoundary = statement.indexOf(leftReserved) + leftReserved.length
+        val rightBoundary = statement.indexOf(rightReserved)
+        return statement.replaceRange(leftBoundary, rightBoundary, dualTable)
+    }
+
     override fun delete(
         ignore: Boolean,
         table: Table,
@@ -230,6 +297,10 @@ open class OracleDialect : VendorDialect(dialectName, OracleDataTypeProvider, Or
 
     override fun isAllowedAsColumnDefault(e: Expression<*>): Boolean = true
 
+    override fun dropIndex(tableName: String, indexName: String, isUnique: Boolean, isPartialOrFunctional: Boolean): String {
+        return "DROP INDEX ${identifierManager.quoteIfNecessary(indexName)}"
+    }
+
     override fun modifyColumn(column: Column<*>, columnDiff: ColumnDiff): List<String> {
         val result = super.modifyColumn(column, columnDiff).map {
             it.replace("MODIFY COLUMN", "MODIFY")
@@ -252,6 +323,7 @@ open class OracleDialect : VendorDialect(dialectName, OracleDataTypeProvider, Or
 
     override fun createSchema(schema: Schema): String = buildString {
         if ((schema.quota == null) xor (schema.on == null)) {
+            @Suppress("UseRequire")
             throw IllegalArgumentException("You must either provide both <quota> and <on> options or non of them")
         }
 

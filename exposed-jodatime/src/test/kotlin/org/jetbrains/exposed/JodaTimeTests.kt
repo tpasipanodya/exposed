@@ -1,15 +1,23 @@
 package org.jetbrains.exposed
 
+import kotlinx.serialization.*
+import kotlinx.serialization.descriptors.*
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.between
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.like
 import org.jetbrains.exposed.sql.jodatime.*
+import org.jetbrains.exposed.sql.json.extract
+import org.jetbrains.exposed.sql.json.jsonb
 import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
 import org.jetbrains.exposed.sql.tests.TestDB
 import org.jetbrains.exposed.sql.tests.currentDialectTest
 import org.jetbrains.exposed.sql.tests.shared.assertEquals
+import org.jetbrains.exposed.sql.tests.shared.assertTrue
 import org.jetbrains.exposed.sql.vendors.*
 import org.joda.time.DateTime
 import org.joda.time.DateTimeZone
@@ -177,6 +185,42 @@ open class JodaTimeBaseTest : DatabaseTestsBase() {
             assertEquals(2, createdIn2023.size)
         }
     }
+
+    @Test
+    fun testDateTimeAsJsonB() {
+        val tester = object : Table("tester") {
+            val created = datetime("created")
+            val modified = jsonb<ModifierData>("modified", Json.Default)
+        }
+
+        withTables(excludeSettings = TestDB.allH2TestDB + TestDB.SQLITE + TestDB.SQLSERVER + TestDB.ORACLE, tester) {
+            val dateTimeNow = DateTime.now()
+            tester.insert {
+                it[created] = dateTimeNow.minusYears(1)
+                it[modified] = ModifierData(1, dateTimeNow)
+            }
+            tester.insert {
+                it[created] = dateTimeNow.plusYears(1)
+                it[modified] = ModifierData(2, dateTimeNow)
+            }
+
+            val prefix = if (currentDialectTest is PostgreSQLDialect) "" else "."
+
+            // value extracted in same manner it is stored, a json string
+            val modifiedAsString = tester.modified.extract<String>("${prefix}timestamp")
+            val allModifiedAsString = tester.slice(modifiedAsString).selectAll()
+            assertTrue(allModifiedAsString.all { it[modifiedAsString] == dateTimeNow.toString() })
+
+            // PostgreSQL requires explicit type cast to timestamp for in-DB comparison
+            val dateModified = if (currentDialectTest is PostgreSQLDialect) {
+                tester.modified.extract<DateTime>("${prefix}timestamp").castTo(DateColumnType(true))
+            } else {
+                tester.modified.extract<DateTime>("${prefix}timestamp")
+            }
+            val modifiedBeforeCreation = tester.select { dateModified less tester.created }.single()
+            assertEquals(2, modifiedBeforeCreation[tester.modified].userId)
+        }
+    }
 }
 
 fun assertEqualDateTime(d1: DateTime?, d2: DateTime?) {
@@ -200,4 +244,17 @@ val today: DateTime = DateTime.now().withTimeAtStartOfDay()
 object CitiesTime : IntIdTable("CitiesTime") {
     val name = varchar("name", 50) // Column<String>
     val local_time = datetime("local_time").nullable() // Column<datetime>
+}
+
+@Serializable
+data class ModifierData(
+    val userId: Int,
+    @Serializable(with = DateTimeSerializer::class)
+    val timestamp: DateTime
+)
+
+object DateTimeSerializer : KSerializer<DateTime> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("DateTime", PrimitiveKind.STRING)
+    override fun serialize(encoder: Encoder, value: DateTime) = encoder.encodeString(value.toString())
+    override fun deserialize(decoder: Decoder): DateTime = DateTime.parse(decoder.decodeString())
 }

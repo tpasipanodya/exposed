@@ -33,6 +33,10 @@ private object NotInitializedManager : TransactionManager {
 
     override var defaultRepetitionAttempts: Int = -1
 
+    override var defaultMinRepetitionDelay: Long = 0
+
+    override var defaultMaxRepetitionDelay: Long = 0
+
     override fun newTransaction(isolation: Int, readOnly: Boolean, outerTransaction: Transaction?): Transaction =
         error("Please call Database.connect() before using this code")
 
@@ -50,6 +54,10 @@ interface TransactionManager {
     var defaultReadOnly: Boolean
 
     var defaultRepetitionAttempts: Int
+
+    var defaultMinRepetitionDelay: Long
+
+    var defaultMaxRepetitionDelay: Long
 
     fun newTransaction(
         isolation: Int = defaultIsolationLevel,
@@ -153,5 +161,7 @@ internal inline fun TransactionInterface.closeLoggingException(log: (Exception) 
     }
 }
 
+@Suppress("TooGenericExceptionThrown")
 val Database?.transactionManager: TransactionManager
-    get() = TransactionManager.managerFor(this) ?: throw RuntimeException("database $this don't have any transaction manager")
+    get() = TransactionManager.managerFor(this)
+        ?: throw RuntimeException("database $this don't have any transaction manager")

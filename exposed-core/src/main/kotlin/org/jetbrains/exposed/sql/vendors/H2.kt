@@ -13,6 +13,9 @@ internal object H2DataTypeProvider : DataTypeProvider() {
 
     override fun uuidType(): String = "UUID"
     override fun dateTimeType(): String = "DATETIME(9)"
+
+    override fun jsonBType(): String = "JSON"
+
     override fun hexToDb(hexString: String): String = "X'$hexString'"
 }
 
@@ -98,29 +101,6 @@ internal object H2FunctionProvider : FunctionProvider() {
         toString()
     }
 
-    override fun replace(
-        table: Table,
-        data: List<Pair<Column<*>, Any?>>,
-        transaction: Transaction
-    ): String {
-        table.materializeDefaultFilter()?.let {
-            TransactionManager.current()
-                .throwUnsupportedException("REPLACE on tables with a default scope isn't supported.")
-        }
-
-        if (data.isEmpty()) {
-            return ""
-        }
-
-        val columns = data.map { it.first }
-
-        val builder = QueryBuilder(true)
-
-        val sql = data.appendTo(builder, prefix = "VALUES (", postfix = ")") { (col, value) -> registerArgument(col, value) }.toString()
-
-        return super.insert(false, table, columns, sql, transaction).replaceFirst("INSERT", "MERGE")
-    }
-
     /**
      * Implementation of [FunctionProvider.locate]
      * Note: search is case-sensitive
@@ -175,7 +155,7 @@ open class H2Dialect : VendorDialect(dialectName, H2DataTypeProvider, H2Function
 
     private var delegatedDialect: DatabaseDialect? = null
 
-    private fun resolveDelegatedDialect() : DatabaseDialect? {
+    private fun resolveDelegatedDialect(): DatabaseDialect? {
         return delegatedDialect ?: delegatedDialectNameProvider?.dialectName?.let {
             val dialect = Database.dialects[it]?.invoke() ?: error("Can't resolve dialect for $it")
             delegatedDialect = dialect
@@ -231,11 +211,17 @@ open class H2Dialect : VendorDialect(dialectName, H2DataTypeProvider, H2Function
     override val needsSequenceToAutoInc: Boolean by lazy { resolveDelegatedDialect()?.needsSequenceToAutoInc ?: super.needsSequenceToAutoInc }
     override val defaultReferenceOption: ReferenceOption by lazy { resolveDelegatedDialect()?.defaultReferenceOption ?: super.defaultReferenceOption }
 //    override val needsQuotesWhenSymbolsInNames: Boolean by lazy { resolveDelegatedDialect()?.needsQuotesWhenSymbolsInNames ?: super.needsQuotesWhenSymbolsInNames }
-    override val supportsSequenceAsGeneratedKeys: Boolean by lazy { resolveDelegatedDialect()?.supportsSequenceAsGeneratedKeys ?: super.supportsSequenceAsGeneratedKeys }
+    override val supportsSequenceAsGeneratedKeys: Boolean by lazy {
+        resolveDelegatedDialect()?.supportsSequenceAsGeneratedKeys ?: super.supportsSequenceAsGeneratedKeys
+    }
+    override val supportsTernaryAffectedRowValues: Boolean by lazy {
+        resolveDelegatedDialect()?.supportsTernaryAffectedRowValues ?: super.supportsTernaryAffectedRowValues
+    }
     override val supportsCreateSchema: Boolean by lazy { resolveDelegatedDialect()?.supportsCreateSchema ?: super.supportsCreateSchema }
     override val supportsSubqueryUnions: Boolean by lazy { resolveDelegatedDialect()?.supportsSubqueryUnions ?: super.supportsSubqueryUnions }
     override val supportsDualTableConcept: Boolean by lazy { resolveDelegatedDialect()?.supportsDualTableConcept ?: super.supportsDualTableConcept }
     override val supportsOrderByNullsFirstLast: Boolean by lazy { resolveDelegatedDialect()?.supportsOrderByNullsFirstLast ?: super.supportsOrderByNullsFirstLast }
+    override val supportsWindowFrameGroupsMode: Boolean by lazy { resolveDelegatedDialect()?.supportsWindowFrameGroupsMode ?: super.supportsWindowFrameGroupsMode }
 //    override val likePatternSpecialChars: Map<Char, Char?> by lazy { resolveDelegatedDialect()?.likePatternSpecialChars ?: super.likePatternSpecialChars }
 
     override fun existingIndices(vararg tables: Table): Map<Table, List<Index>> =
@@ -255,6 +241,12 @@ open class H2Dialect : VendorDialect(dialectName, H2DataTypeProvider, H2Function
         if (index.indexType != null) {
             exposedLogger.warn(
                 "Index of type ${index.indexType} on ${index.table.tableName} for ${index.columns.joinToString { it.name }} can't be created in H2"
+            )
+            return ""
+        }
+        if (index.functions != null) {
+            exposedLogger.warn(
+                "Functional index on ${index.table.tableName} using ${index.functions.joinToString { it.toString() }} can't be created in H2"
             )
             return ""
         }

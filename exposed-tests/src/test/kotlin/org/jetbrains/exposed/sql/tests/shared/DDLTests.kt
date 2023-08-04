@@ -9,6 +9,7 @@ import org.jetbrains.exposed.dao.id.LongIdTable
 import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.exceptions.UnsupportedByDialectException
 import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.plus
 import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
 import org.jetbrains.exposed.sql.tests.TestDB
@@ -396,6 +397,52 @@ class DDLTests : DatabaseTestsBase() {
         }
     }
 
+    @Test
+    fun testIndexWithFunctions() {
+        val tester = object : Table("tester") {
+            val amount = integer("amount")
+            val price = integer("price")
+            val item = varchar("item", 32).nullable()
+
+            init {
+                index(customIndexName = "tester_plus_index", isUnique = false, functions = listOf(amount.plus(price)))
+                index(isUnique = false, functions = listOf(item.lowerCase()))
+                uniqueIndex(columns = arrayOf(price), functions = listOf(Coalesce(item, stringLiteral("*"))))
+            }
+        }
+
+        withDb { testDb ->
+            val tableProperName = tester.tableName.inProperCase()
+            val priceColumnName = tester.price.nameInDatabaseCase()
+            val uniqueIndexName =  "tester_price_coalesce${if (testDb == TestDB.SQLITE) "" else "_unique"}".inProperCase()
+            val (p1, p2) = if (testDb == TestDB.MYSQL) "(" to ")" else "" to ""
+            val functionStrings = when (testDb) {
+                TestDB.SQLITE, TestDB.ORACLE -> listOf("(amount + price)", "LOWER(item)", "COALESCE(item, '*')").map(String::inProperCase)
+                else -> listOf(
+                    tester.amount.plus(tester.price).toString(),
+                    "$p1${tester.item.lowerCase()}$p2",
+                    "$p1${Coalesce(tester.item, stringLiteral("*"))}$p2"
+                )
+            }
+
+            val functionsNotSupported = testDb in (TestDB.allH2TestDB + TestDB.SQLSERVER + TestDB.MARIADB) || isOldMySql()
+            val expectedStatements = if (functionsNotSupported) {
+                List(3) { "" }
+            } else {
+                listOf(
+                    "CREATE INDEX tester_plus_index ON $tableProperName (${functionStrings[0]})",
+                    "CREATE INDEX ${"tester_lower".inProperCase()} ON $tableProperName (${functionStrings[1]})",
+                    "CREATE UNIQUE INDEX $uniqueIndexName ON $tableProperName ($priceColumnName, ${functionStrings[2]})"
+                )
+            }
+
+            repeat(3) { i ->
+                val actualStatement = SchemaUtils.createIndex(tester.indices[i])
+                assertEquals(expectedStatements[i], actualStatement)
+            }
+        }
+    }
+
     @Test fun testBlob() {
         val t = object : Table("t1") {
             val id = integer("id").autoIncrement()
@@ -423,6 +470,10 @@ class DDLTests : DatabaseTestsBase() {
                 it[t.b] = longBlob
             } get (t.id)
 
+            val id3 = t.insert {
+                it[t.b] = blobParam(ExposedBlob(shortBytes))
+            } get (t.id)
+
             val readOn1 = t.select { t.id eq id1 }.first()[t.b]
             val text1 = String(readOn1.bytes)
             val text2 = readOn1.inputStream.bufferedReader().readText()
@@ -436,6 +487,9 @@ class DDLTests : DatabaseTestsBase() {
 
             assertTrue(longBytes.contentEquals(bytes1))
             assertTrue(longBytes.contentEquals(bytes2))
+
+            val bytes3 = t.select { t.id eq id3 }.first()[t.b].inputStream.readBytes()
+            assertTrue(shortBytes.contentEquals(bytes3))
         }
     }
 
@@ -669,66 +723,6 @@ class DDLTests : DatabaseTestsBase() {
             val result = BoolTable.selectAll().toList()
             assertEquals(1, result.size)
             assertEquals(true, result.single()[BoolTable.bool])
-        }
-    }
-
-        @Test fun testUByteColumnType() {
-        val UbyteTable = object : Table("ubyteTable") {
-            val ubyte = ubyte("ubyte")
-        }
-
-        withTables(UbyteTable) {
-            UbyteTable.insert {
-                it[ubyte] = 123u
-            }
-            val result = UbyteTable.selectAll().toList()
-            assertEquals(1, result.size)
-            assertEquals(123u, result.single()[UbyteTable.ubyte])
-        }
-    }
-
-        @Test fun testUshortColumnType() {
-        val UshortTable = object : Table("ushortTable") {
-            val ushort = ushort("ushort")
-        }
-
-        withTables(UshortTable) {
-            UshortTable.insert {
-                it[ushort] = 123u
-            }
-            val result = UshortTable.selectAll().toList()
-            assertEquals(1, result.size)
-            assertEquals(123u, result.single()[UshortTable.ushort])
-        }
-    }
-
-        @Test fun testUintColumnType() {
-        val UintTable = object : Table("uintTable") {
-            val uint = uinteger("uint")
-        }
-
-        withTables(UintTable) {
-            UintTable.insert {
-                it[uint] = 123u
-            }
-            val result = UintTable.selectAll().toList()
-            assertEquals(1, result.size)
-            assertEquals(123u, result.single()[UintTable.uint])
-        }
-    }
-
-        @Test fun testUlongColumnType() {
-        val UlongTable = object : Table("ulongTable") {
-            val ulong = ulong("ulong")
-        }
-
-        withTables(UlongTable) {
-            UlongTable.insert {
-                it[ulong] = 123uL
-            }
-            val result = UlongTable.selectAll().toList()
-            assertEquals(1, result.size)
-            assertEquals(123uL, result.single()[UlongTable.ulong])
         }
     }
 
