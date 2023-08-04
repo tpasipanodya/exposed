@@ -57,7 +57,7 @@ repositories {
 }
 
 dependencies {
-    implementation(platform("io.taff.exposed:exposed-bom:0.9.1"))
+    implementation(platform("io.taff.exposed:exposed-bom:0.10.0"))
     implementation("io.taff.exposed", "exposed-core")
     implementation("io.taff.exposed", "exposed-dao")
     implementation("io.taff.exposed", "exposed-jdbc")

@@ -35,14 +35,14 @@ repositories {
 		}
 }
 dependencies {
-    implementation(platform("io.taff.exposed:exposed-bom:0.9.1"))
+    implementation(platform("io.taff.exposed:exposed-bom:0.10.0"))
     implementation("io.taff.exposed", "exposed-core")
     implementation("io.taff.exposed", "exposed-dao")
     implementation("io.taff.exposed", "exposed-jdbc")
 }
 ```
 
-The latest release version is `0.9.1` (pegged against `org.jetbrains.exposed:exposed:0.41.1`)
+The latest release version is `0.10.0` (pegged against `org.jetbrains.exposed:exposed:0.42.0`)
 and is available on JFrog at `https://maven.pkg.github.com/tpasipanodya/exposed`.
 
 ## Examples
