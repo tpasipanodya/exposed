@@ -24,6 +24,7 @@ jobs:
           PACKAGE_STORE_USERNAME: ${{ secrets.PACKAGE_STORE_USERNAME }}
           PACKAGE_STORE_TOKEN: ${{ secrets.PACKAGE_STORE_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IS_RELEASE_BUILD: true
         with:
           gradle-version: 8.2.1
           arguments: clean test build publish --info --stacktrace -PIS_RELEASE_BUILD=true
