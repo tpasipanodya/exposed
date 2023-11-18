@@ -1,4 +1,3 @@
-import groovy.lang.GroovyObject
 import org.jetbrains.exposed.gradle.isReleaseBuild
 import org.jetbrains.exposed.gradle.setPomMetadata
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
@@ -38,7 +37,7 @@ allprojects {
                 create<MavenPublication>("mavenJava") {
                     artifactId = projekt.name
                     from(projekt.components["java"])
-                    version = if (isReleaseBuild()) "${projekt.version}" else "${projekt.version}-SNAPSHOT-"
+                    version = if (isReleaseBuild()) "${projekt.version}" else "${projekt.version}-SNAPSHOT"
                     versionMapping {
                         usage("java-api") {
                             fromResolutionOf("runtimeClasspath")
