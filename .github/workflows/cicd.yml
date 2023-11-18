@@ -4,7 +4,7 @@ on:
     tags:
       - '*'
 jobs:
-  Build-Release:
+  CI&CD:
     runs-on: ubuntu-latest
     permissions:
       packages: write
