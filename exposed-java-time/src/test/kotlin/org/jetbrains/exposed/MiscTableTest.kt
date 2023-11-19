@@ -436,14 +436,10 @@ class MiscTableTest : DatabaseTestsBase() {
                 dblcn = null
             )
 
-            val dtValue = when (testDb) {
-                in requiresExplicitDTCast -> Cast(dateTimeParam(dateTime), JavaLocalDateTimeColumnType())
-                else -> dateTimeParam(dateTime)
-            }
             tbl.checkRowFull(
                 tbl.select {
-                    tbl.dt.greater(dtValue.minusMinutes(1))
-                        .and(tbl.dt.less(dtValue.plusMinutes(1)))
+                    tbl.dt.greater(dateTime.minusMinutes(1))
+                        .and(tbl.dt.less(dateTime.plusMinutes(1)))
                 }.single(),
                 by = 13,
                 byn = null,
@@ -865,19 +861,11 @@ class MiscTableTest : DatabaseTestsBase() {
                 dblcn = 567.89
             )
 
-            val dtValue = when (testDb) {
-                in requiresExplicitDTCast -> Cast(dateTimeParam(dateTime), JavaLocalDateTimeColumnType())
-                else -> dateTimeParam(dateTime)
-            }
             tbl.checkRowFull(
-<<<<<<< HEAD
                 tbl.select {
                     tbl.dt.greater(dateTime.minusMinutes(1))
                         .and(tbl.dt.less(dateTime.plusMinutes(1)))
                 }.single(),
-=======
-                tbl.select { tbl.dt.eq(dtValue) }.single(),
->>>>>>> c6fe30e61a17f71fa6310a10cb786ca17c4a4807
                 by = 13,
                 byn = 13,
                 sm = -10,

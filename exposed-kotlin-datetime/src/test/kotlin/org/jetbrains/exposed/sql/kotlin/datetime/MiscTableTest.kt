@@ -459,14 +459,10 @@ class MiscTableTest : DatabaseTestsBase() {
                 dblcn = null
             )
 
-            val dtValue = when (testDb) {
-                in requiresExplicitDTCast -> Cast(dateTimeParam(dateTime), KotlinLocalDateTimeColumnType())
-                else -> dateTimeParam(dateTime)
-            }
             tbl.checkRowFull(
                 tbl.select {
-                    tbl.dt.greater(dtValue.toJavaLocalDateTime().minusMinutes(1).toKotlinLocalDateTime())
-                        .and(tbl.dt.less(dtValue.toJavaLocalDateTime().plusMinutes(1).toKotlinLocalDateTime()))
+                    tbl.dt.greater(dateTime.toJavaLocalDateTime().minusMinutes(1).toKotlinLocalDateTime())
+                        .and(tbl.dt.less(dateTime.toJavaLocalDateTime().plusMinutes(1).toKotlinLocalDateTime()))
                 }.single(),
                 by = 13,
                 byn = null,
@@ -888,14 +884,10 @@ class MiscTableTest : DatabaseTestsBase() {
                 dblcn = 567.89
             )
 
-            val dtValue = when (testDb) {
-                in requiresExplicitDTCast -> Cast(dateTimeParam(dateTime), KotlinLocalDateTimeColumnType())
-                else -> dateTimeParam(dateTime)
-            }
             tbl.checkRowFull(
                 tbl.select {
-                    tbl.dt.greater(dtValue.toJavaLocalDateTime().minusMinutes(1).toKotlinLocalDateTime())
-                    .and(tbl.dt.less(dtValue.toJavaLocalDateTime().plusMinutes(1).toKotlinLocalDateTime()))
+                    tbl.dt.greater(dateTime.toJavaLocalDateTime().minusMinutes(1).toKotlinLocalDateTime())
+                    .and(tbl.dt.less(dateTime.toJavaLocalDateTime().plusMinutes(1).toKotlinLocalDateTime()))
                 }.single(),
                 by = 13,
                 byn = 13,
