@@ -4,6 +4,7 @@ import org.intellij.lang.annotations.Language
 import org.jetbrains.exposed.exceptions.throwUnsupportedException
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
+import java.util.*
 
 internal object H2DataTypeProvider : DataTypeProvider() {
     override fun binaryType(): String {
@@ -12,7 +13,13 @@ internal object H2DataTypeProvider : DataTypeProvider() {
     }
 
     override fun uuidType(): String = "UUID"
+    override fun uuidToDB(value: UUID): Any = value.toString()
     override fun dateTimeType(): String = "DATETIME(9)"
+
+    override fun timestampWithTimeZoneType(): String = "TIMESTAMP(9) WITH TIME ZONE"
+
+    override fun jsonBType(): String = "JSON"
+
     override fun hexToDb(hexString: String): String = "X'$hexString'"
 }
 
@@ -138,6 +145,9 @@ internal object H2FunctionProvider : FunctionProvider() {
  * H2 dialect implementation.
  */
 open class H2Dialect : VendorDialect(dialectName, H2DataTypeProvider, H2FunctionProvider) {
+
+    override fun toString(): String = "H2Dialect[$dialectName, $h2Mode]"
+
     internal enum class H2MajorVersion {
         One, Two
     }
@@ -175,8 +185,8 @@ open class H2Dialect : VendorDialect(dialectName, H2DataTypeProvider, H2Function
 
     private var delegatedDialect: DatabaseDialect? = null
 
-    private fun resolveDelegatedDialect() : DatabaseDialect? {
-        return delegatedDialect ?: delegatedDialectNameProvider?.dialectName?.let {
+    private fun resolveDelegatedDialect(): DatabaseDialect? {
+        return delegatedDialect ?: delegatedDialectNameProvider?.dialectName?.lowercase()?.let {
             val dialect = Database.dialects[it]?.invoke() ?: error("Can't resolve dialect for $it")
             delegatedDialect = dialect
             dialect
@@ -200,6 +210,7 @@ open class H2Dialect : VendorDialect(dialectName, H2DataTypeProvider, H2Function
             H2MajorVersion.One -> "NAME" to "VALUE"
             H2MajorVersion.Two -> "SETTING_NAME" to "SETTING_VALUE"
         }
+
         @Language("H2")
         val fetchModeQuery = "SELECT $settingValueField FROM INFORMATION_SCHEMA.SETTINGS WHERE $settingNameField = 'MODE'"
         val modeValue = TransactionManager.current().exec(fetchModeQuery) { rs ->
@@ -230,12 +241,17 @@ open class H2Dialect : VendorDialect(dialectName, H2DataTypeProvider, H2Function
     override val supportsCreateSequence: Boolean by lazy { resolveDelegatedDialect()?.supportsCreateSequence ?: super.supportsCreateSequence }
     override val needsSequenceToAutoInc: Boolean by lazy { resolveDelegatedDialect()?.needsSequenceToAutoInc ?: super.needsSequenceToAutoInc }
     override val defaultReferenceOption: ReferenceOption by lazy { resolveDelegatedDialect()?.defaultReferenceOption ?: super.defaultReferenceOption }
-//    override val needsQuotesWhenSymbolsInNames: Boolean by lazy { resolveDelegatedDialect()?.needsQuotesWhenSymbolsInNames ?: super.needsQuotesWhenSymbolsInNames }
-    override val supportsSequenceAsGeneratedKeys: Boolean by lazy { resolveDelegatedDialect()?.supportsSequenceAsGeneratedKeys ?: super.supportsSequenceAsGeneratedKeys }
+    override val supportsSequenceAsGeneratedKeys: Boolean by lazy {
+        resolveDelegatedDialect()?.supportsSequenceAsGeneratedKeys ?: super.supportsSequenceAsGeneratedKeys
+    }
+    override val supportsTernaryAffectedRowValues: Boolean by lazy {
+        resolveDelegatedDialect()?.supportsTernaryAffectedRowValues ?: super.supportsTernaryAffectedRowValues
+    }
     override val supportsCreateSchema: Boolean by lazy { resolveDelegatedDialect()?.supportsCreateSchema ?: super.supportsCreateSchema }
     override val supportsSubqueryUnions: Boolean by lazy { resolveDelegatedDialect()?.supportsSubqueryUnions ?: super.supportsSubqueryUnions }
     override val supportsDualTableConcept: Boolean by lazy { resolveDelegatedDialect()?.supportsDualTableConcept ?: super.supportsDualTableConcept }
     override val supportsOrderByNullsFirstLast: Boolean by lazy { resolveDelegatedDialect()?.supportsOrderByNullsFirstLast ?: super.supportsOrderByNullsFirstLast }
+    override val supportsWindowFrameGroupsMode: Boolean by lazy { resolveDelegatedDialect()?.supportsWindowFrameGroupsMode ?: super.supportsWindowFrameGroupsMode }
 //    override val likePatternSpecialChars: Map<Char, Char?> by lazy { resolveDelegatedDialect()?.likePatternSpecialChars ?: super.likePatternSpecialChars }
 
     override fun existingIndices(vararg tables: Table): Map<Table, List<Index>> =
@@ -258,17 +274,25 @@ open class H2Dialect : VendorDialect(dialectName, H2DataTypeProvider, H2Function
             )
             return ""
         }
+        if (index.functions != null) {
+            exposedLogger.warn(
+                "Functional index on ${index.table.tableName} using ${index.functions.joinToString { it.toString() }} can't be created in H2"
+            )
+            return ""
+        }
         return super.createIndex(index)
     }
 
     override fun createDatabase(name: String) = "CREATE SCHEMA IF NOT EXISTS ${name.inProperCase()}"
+
+    override fun listDatabases(): String = "SHOW SCHEMAS"
 
     override fun modifyColumn(column: Column<*>, columnDiff: ColumnDiff): List<String> =
         super.modifyColumn(column, columnDiff).map { it.replace("MODIFY COLUMN", "ALTER COLUMN") }
 
     override fun dropDatabase(name: String) = "DROP SCHEMA IF EXISTS ${name.inProperCase()}"
 
-    companion object : DialectNameProvider("h2")
+    companion object : DialectNameProvider("H2")
 }
 
 val DatabaseDialect.h2Mode: H2Dialect.H2CompatibilityMode? get() = (this as? H2Dialect)?.h2Mode

@@ -1,10 +1,13 @@
 plugins {
     kotlin("jvm") apply true
-    id("testWithDBs")
 }
 
 repositories {
     mavenCentral()
+}
+
+kotlin {
+    jvmToolchain(8)
 }
 
 dependencies {

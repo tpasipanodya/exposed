@@ -19,7 +19,16 @@ internal object PostgreSQLDataTypeProvider : DataTypeProvider() {
     override fun blobType(): String = "bytea"
     override fun uuidToDB(value: UUID): Any = value
     override fun dateTimeType(): String = "TIMESTAMP"
-    override fun ubyteType(): String = "SMALLINT"
+    override fun jsonBType(): String = "JSONB"
+
+    override fun processForDefaultValue(e: Expression<*>): String = when {
+        e is LiteralOp<*> && e.columnType is JsonColumnMarker && (currentDialect as? H2Dialect) == null -> {
+            val cast = if (e.columnType.usesBinaryFormat) "::jsonb" else "::json"
+            "${super.processForDefaultValue(e)}$cast"
+        }
+        else -> super.processForDefaultValue(e)
+    }
+
     override fun hexToDb(hexString: String): String = """E'\\x$hexString'"""
 }
 
@@ -110,6 +119,65 @@ internal object PostgreSQLFunctionProvider : FunctionProvider() {
         append(")")
     }
 
+    override fun <T> jsonExtract(
+        expression: Expression<T>,
+        vararg path: String,
+        toScalar: Boolean,
+        jsonType: IColumnType,
+        queryBuilder: QueryBuilder
+    ) = queryBuilder {
+        append("${jsonType.sqlType()}_EXTRACT_PATH")
+        if (toScalar) append("_TEXT")
+        append("(", expression, ", ")
+        path.ifEmpty { arrayOf("$") }.appendTo { +"'$it'" }
+        append(")")
+    }
+
+    override fun jsonContains(
+        target: Expression<*>,
+        candidate: Expression<*>,
+        path: String?,
+        jsonType: IColumnType,
+        queryBuilder: QueryBuilder
+    ) {
+        path?.let {
+            TransactionManager.current().throwUnsupportedException("PostgreSQL does not support a JSON path argument")
+        }
+        val isNotJsonB = !(jsonType as JsonColumnMarker).usesBinaryFormat
+        queryBuilder {
+            append(target)
+            if (isNotJsonB) append("::jsonb")
+            append(" @> ", candidate)
+            if (isNotJsonB) append("::jsonb")
+        }
+    }
+
+    override fun jsonExists(
+        expression: Expression<*>,
+        vararg path: String,
+        optional: String?,
+        jsonType: IColumnType,
+        queryBuilder: QueryBuilder
+    ) {
+        if (path.size > 1) {
+            TransactionManager.current().throwUnsupportedException("PostgreSQL does not support multiple JSON path arguments")
+        }
+        val isNotJsonB = !(jsonType as JsonColumnMarker).usesBinaryFormat
+        queryBuilder {
+            append("JSONB_PATH_EXISTS(")
+            if (isNotJsonB) {
+                append("CAST(", expression, " as jsonb), ")
+            } else {
+                append(expression, ", ")
+            }
+            append("'$", path.firstOrNull() ?: "", "'")
+            optional?.let {
+                append(", '$it'")
+            }
+            append(")")
+        }
+    }
+
     private const val onConflictIgnore = "ON CONFLICT DO NOTHING"
 
     override fun insert(
@@ -168,34 +236,42 @@ internal object PostgreSQLFunctionProvider : FunctionProvider() {
         toString()
     }
 
-    override fun replace(
+    override fun upsert(
         table: Table,
         data: List<Pair<Column<*>, Any?>>,
-        transaction: Transaction
+        onUpdate: List<Pair<Column<*>, Expression<*>>>?,
+        where: Op<Boolean>?,
+        transaction: Transaction,
+        vararg keys: Column<*>
     ): String {
-        table.materializeDefaultFilter()?.let {
-            TransactionManager
-                .current()
-                .throwUnsupportedException("REPLACE on tables with a default scope isn't supported.")
-        }
-        val builder = QueryBuilder(true)
-        val sql = if (data.isEmpty()) {
-            ""
-        } else {
-            data.appendTo(builder, prefix = "VALUES (", postfix = ")") { (col, value) -> registerArgument(col, value) }.toString()
+        val keyColumns = getKeyColumnsForUpsert(table, *keys)
+        if (keyColumns.isNullOrEmpty()) {
+            transaction.throwUnsupportedException("UPSERT requires a unique key or constraint as a conflict target")
         }
 
-        val columns = data.map { it.first }
+        val updateColumns = data.unzip().first.filter { it !in keyColumns }
 
-        val def = super.insert(false, table, columns, sql, transaction)
+        return with(QueryBuilder(true)) {
+            appendInsertToUpsertClause(table, data, transaction)
 
-        val uniqueCols = table.primaryKey?.columns
-        if (uniqueCols.isNullOrEmpty()) {
-            transaction.throwUnsupportedException("PostgreSQL replace table must supply at least one primary key.")
-        }
-        val conflictKey = uniqueCols.joinToString { transaction.identity(it) }
-        return def + "ON CONFLICT ($conflictKey) DO UPDATE SET " + columns.joinToString {
-            "${transaction.identity(it)}=EXCLUDED.${transaction.identity(it)}"
+            +" ON CONFLICT "
+            keyColumns.appendTo(prefix = "(", postfix = ")") { column ->
+                append(transaction.identity(column))
+            }
+
+            +" DO"
+            appendUpdateToUpsertClause(table, updateColumns, onUpdate, transaction, isAliasNeeded = false)
+
+            where?.let { originalClause ->
+                table.materializeDefaultFilter()?.let { defaultFilter ->
+                    originalClause and defaultFilter
+
+                } ?: originalClause
+            }?.let {
+                +" WHERE "
+                +it
+            }
+            toString()
         }
     }
 
@@ -216,48 +292,62 @@ internal object PostgreSQLFunctionProvider : FunctionProvider() {
 /**
  * PostgreSQL dialect implementation.
  */
-open class PostgreSQLDialect : VendorDialect(dialectName, PostgreSQLDataTypeProvider, PostgreSQLFunctionProvider) {
+open class PostgreSQLDialect(override val name: String = dialectName) : VendorDialect(dialectName, PostgreSQLDataTypeProvider, PostgreSQLFunctionProvider) {
     override val supportsOrderByNullsFirstLast: Boolean = true
 
     override val requiresAutoCommitOnCreateDrop: Boolean = true
 
+    override val supportsWindowFrameGroupsMode: Boolean = true
+
     override fun isAllowedAsColumnDefault(e: Expression<*>): Boolean = true
 
-    override fun modifyColumn(column: Column<*>, columnDiff: ColumnDiff): List<String> = listOf(buildString {
-        val tr = TransactionManager.current()
-        append("ALTER TABLE ${tr.identity(column.table)} ")
-        val colName = tr.identity(column)
-        append("ALTER COLUMN $colName TYPE ${column.columnType.sqlType()}")
+    override fun modifyColumn(column: Column<*>, columnDiff: ColumnDiff): List<String> = listOf(
+        buildString {
+            val tr = TransactionManager.current()
+            append("ALTER TABLE ${tr.identity(column.table)} ")
+            val colName = tr.identity(column)
+            append("ALTER COLUMN $colName TYPE ${column.columnType.sqlType()}")
 
-        if (columnDiff.nullability) {
-            append(", ALTER COLUMN $colName ")
-            if (column.columnType.nullable) {
-                append("DROP ")
-            } else {
-                append("SET ")
+            if (columnDiff.nullability) {
+                append(", ALTER COLUMN $colName ")
+                if (column.columnType.nullable) {
+                    append("DROP ")
+                } else {
+                    append("SET ")
+                }
+                append("NOT NULL")
             }
-            append("NOT NULL")
-        }
-        if (columnDiff.defaults) {
-            column.dbDefaultValue?.let {
-                append(", ALTER COLUMN $colName SET DEFAULT ${PostgreSQLDataTypeProvider.processForDefaultValue(it)}")
-            } ?: run {
-                append(",  ALTER COLUMN $colName DROP DEFAULT")
+            if (columnDiff.defaults) {
+                column.dbDefaultValue?.let {
+                    append(", ALTER COLUMN $colName SET DEFAULT ${PostgreSQLDataTypeProvider.processForDefaultValue(it)}")
+                } ?: run {
+                    append(",  ALTER COLUMN $colName DROP DEFAULT")
+                }
             }
         }
-    })
+    )
 
     override fun createDatabase(name: String): String = "CREATE DATABASE ${name.inProperCase()}"
+
+    override fun listDatabases(): String = "SELECT datname FROM pg_database"
 
     override fun dropDatabase(name: String): String = "DROP DATABASE ${name.inProperCase()}"
 
     override fun setSchema(schema: Schema): String = "SET search_path TO ${schema.identifier}"
 
-    override fun createIndexWithType(name: String, table: String, columns: String, type: String): String {
-        return "CREATE INDEX $name ON $table USING $type $columns"
+    override fun createIndexWithType(name: String, table: String, columns: String, type: String, filterCondition: String): String {
+        return "CREATE INDEX $name ON $table USING $type $columns$filterCondition"
     }
 
-    companion object : DialectNameProvider("postgresql")
+    override fun dropIndex(tableName: String, indexName: String, isUnique: Boolean, isPartialOrFunctional: Boolean): String {
+        return if (isUnique && !isPartialOrFunctional) {
+            "ALTER TABLE IF EXISTS ${identifierManager.quoteIfNecessary(tableName)} DROP CONSTRAINT IF EXISTS ${identifierManager.quoteIfNecessary(indexName)}"
+        } else {
+            "DROP INDEX IF EXISTS ${identifierManager.quoteIfNecessary(indexName)}"
+        }
+    }
+
+    companion object : DialectNameProvider("PostgreSQL")
 }
 
 /**
@@ -265,8 +355,8 @@ open class PostgreSQLDialect : VendorDialect(dialectName, PostgreSQLDataTypeProv
  *
  * The driver accepts basic URLs in the following format : jdbc:pgsql://localhost:5432/db
  */
-open class PostgreSQLNGDialect : PostgreSQLDialect() {
+open class PostgreSQLNGDialect : PostgreSQLDialect(dialectName) {
     override val requiresAutoCommitOnCreateDrop: Boolean = true
 
-    companion object : DialectNameProvider("pgsql")
+    companion object : DialectNameProvider("PostgreSQLNG")
 }

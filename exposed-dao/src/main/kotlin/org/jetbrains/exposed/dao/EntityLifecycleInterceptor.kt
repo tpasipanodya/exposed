@@ -27,6 +27,7 @@ class EntityLifecycleInterceptor : GlobalStatementInterceptor {
         return userData.filterValues { it is EntityCache }
     }
 
+    @Suppress("ComplexMethod")
     override fun beforeExecution(transaction: Transaction, context: StatementContext) {
         when (val statement = context.statement) {
             is Query -> transaction.flushEntities(statement)
@@ -34,6 +35,16 @@ class EntityLifecycleInterceptor : GlobalStatementInterceptor {
             is DeleteStatement -> {
                 transaction.flushCache()
                 transaction.entityCache.removeTablesReferrers(listOf(statement.table), false)
+                if (!isExecutedWithinEntityLifecycle) {
+                    statement.targets.filterIsInstance<IdTable<*>>().forEach {
+                        transaction.entityCache.data[it]?.clear()
+                    }
+                }
+            }
+
+            is UpsertStatement<*>, is BatchUpsertStatement -> {
+                transaction.flushCache()
+                transaction.entityCache.removeTablesReferrers(statement.targets, true)
                 if (!isExecutedWithinEntityLifecycle) {
                     statement.targets.filterIsInstance<IdTable<*>>().forEach {
                         transaction.entityCache.data[it]?.clear()
@@ -66,8 +77,9 @@ class EntityLifecycleInterceptor : GlobalStatementInterceptor {
     }
 
     override fun afterExecution(transaction: Transaction, contexts: List<StatementContext>, executedStatement: PreparedStatementApi) {
-        if (!isExecutedWithinEntityLifecycle || contexts.first().statement !is InsertStatement<*>)
+        if (!isExecutedWithinEntityLifecycle || contexts.first().statement !is InsertStatement<*>) {
             transaction.alertSubscribers()
+        }
     }
 
     override fun beforeCommit(transaction: Transaction) {

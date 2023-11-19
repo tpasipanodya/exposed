@@ -3,7 +3,6 @@ Bill of Materials for all Exposed modules
 
 # Maven
 ```xml
-<!-- Versions after 0.33.1 -->
 <repositories>
     <repository>
         <id>mavenCentral</id>

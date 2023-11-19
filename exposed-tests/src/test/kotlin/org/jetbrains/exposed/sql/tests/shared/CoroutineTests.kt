@@ -13,12 +13,11 @@ import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
 import org.jetbrains.exposed.sql.tests.RepeatableTest
 import org.jetbrains.exposed.sql.tests.TestDB
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
-import org.jetbrains.exposed.sql.transactions.experimental.suspendedTransaction
 import org.jetbrains.exposed.sql.transactions.experimental.suspendedTransactionAsync
+import org.jetbrains.exposed.sql.transactions.experimental.withSuspendTransaction
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.junit.Rule
 import org.junit.Test
-import java.lang.Exception
 import java.sql.Connection
 import java.util.concurrent.Executors
 import kotlin.test.assertNotNull
@@ -31,20 +30,24 @@ class CoroutineTests : DatabaseTestsBase() {
 
     object Testing : IntIdTable("COROUTINE_TESTING")
 
+    object TestingUnique : Table("COROUTINE_UNIQUE") {
+        val id = integer("id").uniqueIndex()
+    }
+
     @Rule
     @JvmField
     val timeout = CoroutinesTimeout.seconds(60)
 
-    @Test @RepeatableTest(10)
+    @Test
+    @RepeatableTest(10)
     fun suspendedTx() {
         withTables(Testing) {
             val mainJob = GlobalScope.async(singleThreadDispatcher) {
-
                 val job = launch(singleThreadDispatcher) {
                     newSuspendedTransaction(db = db) {
                         Testing.insert {}
 
-                        suspendedTransaction {
+                        withSuspendTransaction {
                             assertEquals(1, Testing.select { Testing.id.eq(1) }.singleOrNull()?.getOrNull(Testing.id)?.value)
                         }
                     }
@@ -64,14 +67,60 @@ class CoroutineTests : DatabaseTestsBase() {
         }
     }
 
-    @Test @RepeatableTest(10)
+    @Test
+    @RepeatableTest(10)
+    fun testSuspendTransactionWithRepetition() {
+        withTables(TestingUnique) {
+            val (originalId, updatedId) = 1 to 99
+            val mainJob = GlobalScope.async(Dispatchers.Default) {
+                newSuspendedTransaction(Dispatchers.Default, db = db) {
+                    TestingUnique.insert { it[id] = originalId }
+
+                    assertEquals(originalId, TestingUnique.selectAll().single()[TestingUnique.id])
+                }
+
+                val insertJob = launch {
+                    newSuspendedTransaction(Dispatchers.Default, db = db) {
+                        repetitionAttempts = 20
+
+                        // throws JdbcSQLIntegrityConstraintViolationException: Unique index or primary key violation
+                        // until original row is updated with a new id
+                        TestingUnique.insert { it[id] = originalId }
+
+                        assertEquals(2, TestingUnique.selectAll().count())
+                    }
+                }
+                val updateJob = launch {
+                    newSuspendedTransaction(Dispatchers.Default, db = db) {
+                        repetitionAttempts = 20
+
+                        TestingUnique.update({ TestingUnique.id eq originalId }) { it[id] = updatedId }
+
+                        assertEquals(updatedId, TestingUnique.selectAll().single()[TestingUnique.id])
+                    }
+                }
+                insertJob.join()
+                updateJob.join()
+
+                val result = newSuspendedTransaction(Dispatchers.Default, db = db) { TestingUnique.selectAll().count() }
+                kotlin.test.assertEquals(2, result, "Failing at end of mainJob")
+            }
+
+            while (!mainJob.isCompleted) Thread.sleep(100)
+            mainJob.getCompletionExceptionOrNull()?.let { throw it }
+            assertEqualCollections(listOf(updatedId, originalId), TestingUnique.selectAll().map { it[TestingUnique.id] })
+        }
+    }
+
+    @Test
+    @RepeatableTest(10)
     fun suspendTxAsync() {
         withTables(Testing) {
             val job = GlobalScope.async {
                 val launchResult = suspendedTransactionAsync(Dispatchers.IO, db = db) {
                     Testing.insert {}
 
-                    suspendedTransaction {
+                    withSuspendTransaction {
                         assertEquals(1, Testing.select { Testing.id.eq(1) }.singleOrNull()?.getOrNull(Testing.id)?.value)
                     }
                 }
@@ -96,14 +145,54 @@ class CoroutineTests : DatabaseTestsBase() {
         }
     }
 
-    @Test @RepeatableTest(10)
+    @Test
+    @RepeatableTest(10)
+    fun testSuspendTransactionAsyncWithRepetition() {
+        withTables(excludeSettings = listOf(TestDB.SQLITE), TestingUnique) {
+            val (originalId, updatedId) = 1 to 99
+            val mainJob = GlobalScope.async(Dispatchers.Default) {
+                newSuspendedTransaction(Dispatchers.Default, db = db) {
+                    TestingUnique.insert { it[id] = originalId }
+
+                    assertEquals(originalId, TestingUnique.selectAll().single()[TestingUnique.id])
+                }
+
+                val (insertResult, updateResult) = listOf(
+                    suspendedTransactionAsync(db = db) {
+                        repetitionAttempts = 20
+
+                        // throws JdbcSQLIntegrityConstraintViolationException: Unique index or primary key violation
+                        // until original row is updated with a new id
+                        TestingUnique.insert { it[id] = originalId }
+
+                        TestingUnique.selectAll().count()
+                    },
+                    suspendedTransactionAsync(db = db) {
+                        repetitionAttempts = 20
+
+                        TestingUnique.update({ TestingUnique.id eq originalId }) { it[id] = updatedId }
+                        TestingUnique.selectAll().count()
+                    }
+                ).awaitAll()
+
+                kotlin.test.assertEquals(1, updateResult, "Failing at end of update job")
+                kotlin.test.assertEquals(2, insertResult, "Failing at end of insert job")
+            }
+
+            while (!mainJob.isCompleted) Thread.sleep(100)
+            mainJob.getCompletionExceptionOrNull()?.let { throw it }
+            assertEqualCollections(listOf(updatedId, originalId), TestingUnique.selectAll().map { it[TestingUnique.id] })
+        }
+    }
+
+    @Test
+    @RepeatableTest(10)
     fun nestedSuspendTxTest() {
         suspend fun insertTesting(db: Database) = newSuspendedTransaction(db = db) {
             Testing.insert {}
         }
         withTables(listOf(TestDB.SQLITE), Testing) {
             val mainJob = GlobalScope.async {
-
                 val job = launch(Dispatchers.IO) {
                     newSuspendedTransaction(db = db) {
                         connection.transactionIsolation = Connection.TRANSACTION_READ_COMMITTED
@@ -129,7 +218,8 @@ class CoroutineTests : DatabaseTestsBase() {
         }
     }
 
-    @Test @RepeatableTest(10)
+    @Test
+    @RepeatableTest(10)
     fun nestedSuspendAsyncTxTest() {
         withTables(listOf(TestDB.H2, TestDB.H2_MYSQL, TestDB.SQLITE), Testing) {
             val mainJob = GlobalScope.async {
@@ -161,11 +251,11 @@ class CoroutineTests : DatabaseTestsBase() {
         }
     }
 
-    @Test @RepeatableTest(10)
+    @Test
+    @RepeatableTest(10)
     fun awaitAllTest() {
         withTables(listOf(TestDB.SQLITE), Testing) {
             val mainJob = GlobalScope.async {
-
                 val results = (1..5).map { indx ->
                     suspendedTransactionAsync(Dispatchers.IO, db = db) {
                         Testing.insert { }
@@ -183,7 +273,8 @@ class CoroutineTests : DatabaseTestsBase() {
         }
     }
 
-    @Test @RepeatableTest(10)
+    @Test
+    @RepeatableTest(10)
     fun suspendedAndNormalTransactions() {
         withTables(Testing) {
             val db = this.db

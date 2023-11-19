@@ -4,6 +4,7 @@ import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
+import org.jetbrains.exposed.sql.tests.TestDB
 import org.jetbrains.exposed.sql.tests.shared.assertEqualLists
 import org.jetbrains.exposed.sql.tests.shared.assertEquals
 import org.jetbrains.exposed.sql.tests.shared.expectException
@@ -13,9 +14,9 @@ class ConditionsTests : DatabaseTestsBase() {
     @Test
     fun testTRUEandFALSEOps() {
         withCitiesAndUsers {
-            val allSities = cities.selectAll().toCityNameList()
+            val allCities = cities.selectAll().toCityNameList()
             assertEquals(0L, cities.select { Op.FALSE }.count())
-            assertEquals(allSities.size.toLong(), cities.select { Op.TRUE }.count())
+            assertEquals(allCities.size.toLong(), cities.select { Op.TRUE }.count())
         }
     }
 
@@ -25,8 +26,8 @@ class ConditionsTests : DatabaseTestsBase() {
             val number1 = integer("number_1").nullable()
             val number2 = integer("number_2").nullable()
         }
-
-        withTables(table) {
+        // remove SQL Server exclusion once test container supports SQL Server 2022
+        withTables(excludeSettings = listOf(TestDB.SQLSERVER), table) {
             val sameNumberId = table.insert {
                 it[number1] = 0
                 it[number2] = 0
@@ -158,9 +159,9 @@ class ConditionsTests : DatabaseTestsBase() {
     @Test
     fun nullOpInCaseTest() {
         withCitiesAndUsers {
-            val caseCondition = Case().
-                When(Op.build { cities.id eq 1 }, Op.nullOp<String>()).
-                Else(cities.name)
+            val caseCondition = Case()
+                .When(Op.build { cities.id eq 1 }, Op.nullOp<String>())
+                .Else(cities.name)
             var nullBranchWasExecuted = false
             cities.slice(cities.id, cities.name, caseCondition).selectAll().forEach {
                 val result = it[caseCondition]
@@ -172,6 +173,67 @@ class ConditionsTests : DatabaseTestsBase() {
                 }
             }
             assertEquals(true, nullBranchWasExecuted)
+        }
+    }
+
+    @Test
+    fun testCaseWhenElseAsArgument() {
+        withCitiesAndUsers { cities, _, _ ->
+            val original = "ORIGINAL"
+            val copy = "COPY"
+            val condition = Op.build { cities.id eq 1 }
+
+            val caseCondition1 = Case()
+                .When(condition, stringLiteral(original))
+                .Else(Op.nullOp())
+            // Case().When().Else() invokes CaseWhenElse() so the 2 formats should be interchangeable as arguments
+            val caseCondition2 = CaseWhenElse(
+                Case().When(condition, stringLiteral(original)),
+                Op.nullOp()
+            )
+            val function1 = Coalesce(caseCondition1, stringLiteral(copy))
+            val function2 = Coalesce(caseCondition2, stringLiteral(copy))
+
+            // confirm both formats produce identical SQL
+            val query1 = cities.slice(cities.id, function1).selectAll().prepareSQL(this, prepared = false)
+            val query2 = cities.slice(cities.id, function2).selectAll().prepareSQL(this, prepared = false)
+            assertEquals(query1, query2)
+
+            val results1 = cities.slice(cities.id, function1).selectAll().toList()
+            cities.slice(cities.id, function2).selectAll().forEachIndexed { i, row ->
+                val currentId = row[cities.id]
+                val functionResult = row[function2]
+
+                assertEquals(if (currentId == 1) original else copy, functionResult)
+                assertEquals(currentId, results1[i][cities.id])
+                assertEquals(functionResult, results1[i][function1])
+            }
+        }
+    }
+
+    @Test
+    fun testChainedAndNestedCaseWhenElseSyntax() {
+        withCitiesAndUsers { cities, _, _ ->
+            val nestedCondition = Case()
+                .When(Op.build { cities.id eq 1 }, intLiteral(1))
+                .Else(intLiteral(-1))
+            val chainedCondition = Case()
+                .When(Op.build { cities.name like "M%" }, intLiteral(0))
+                .When(Op.build { cities.name like "St. %" }, nestedCondition)
+                .When(Op.build { cities.name like "P%" }, intLiteral(2))
+                .Else(intLiteral(-1))
+
+            val results = cities.slice(cities.name, chainedCondition).selectAll()
+            results.forEach {
+                val cityName = it[cities.name]
+                val expectedNumber = when {
+                    cityName.startsWith("M") -> 0
+                    cityName.startsWith("St. ") -> 1
+                    cityName.startsWith("P") -> 2
+                    else -> -1
+                }
+                assertEquals(expectedNumber, it[chainedCondition])
+            }
         }
     }
 }
