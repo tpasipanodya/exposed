@@ -365,9 +365,6 @@ open class Table(name: String = "") : ColumnSet(), DdlAware {
      */
     open fun stripDefaultFilter() = TableWithDefaultFilterStriped(this)
 
-    internal val tableNameWithoutScheme: String get() = tableName.substringAfter(".")
-    // Table name may contain quotes, remove those before appending
-    internal val tableNameWithoutSchemeSanitized: String get() = tableNameWithoutScheme.replace("\"", "").replace("'", "")
 
     /** Returns the schema name, or null if one does not exist for this table.
      *
@@ -434,7 +431,6 @@ open class Table(name: String = "") : ColumnSet(), DdlAware {
 
     override fun materializeDefaultFilter() = defaultFilter?.invoke()
 
-    override fun describe(s: Transaction, queryBuilder: QueryBuilder): Unit = queryBuilder { append(s.identity(this@Table)) }
     /**
      * Returns the table name, without schema and in proper case, with wrapping single- and double-quotation characters removed.
      *
@@ -1390,7 +1386,6 @@ fun ColumnSet.targetTables(): List<Table> = when (this) {
     else -> error("No target provided for update")
 }
 
-<<<<<<< HEAD
 /** A table with a default scope whose default scope has been temporarily striped */
 open class TableWithDefaultFilterStriped(val actualTable: Table) : Table(name = actualTable.tableName), FieldSet by actualTable {
 
@@ -1400,9 +1395,8 @@ open class TableWithDefaultFilterStriped(val actualTable: Table) : Table(name = 
 
     override fun materializeDefaultFilter() : Op<Boolean>? = null
 }
-=======
+
 private fun String.isAlreadyQuoted(): Boolean =
     listOf("\"", "'", "`").any { quoteString ->
         startsWith(quoteString) && endsWith(quoteString)
     }
->>>>>>> c6fe30e61a17f71fa6310a10cb786ca17c4a4807
