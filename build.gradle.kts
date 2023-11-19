@@ -1,5 +1,6 @@
 import org.jetbrains.exposed.gradle.isReleaseBuild
 import org.jetbrains.exposed.gradle.setPomMetadata
+import org.jetbrains.exposed.gradle.testDb
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 import org.jetbrains.exposed.gradle.Versions
 
