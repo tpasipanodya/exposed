@@ -7,7 +7,7 @@ import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
 import org.jetbrains.exposed.sql.tests.RepeatableTestRule
 import org.jetbrains.exposed.sql.tests.TestDB
 import org.jetbrains.exposed.sql.tests.shared.assertEquals
-import org.jetbrains.exposed.sql.tests.shared.dml.DMLTestsData
+import org.jetbrains.exposed.sql.tests.shared.dml.Cities
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.junit.Rule
 import org.junit.Test
@@ -34,17 +34,17 @@ class MysqlTests : DatabaseTestsBase() {
     @Test
     fun testBatchInsertWithRewriteBatchedStatementsOn() {
         val mysqlOnly = TestDB.enabledDialects() - TestDB.MYSQL
-        withTables(excludeSettings = mysqlOnly, DMLTestsData.Cities) {
+        withTables(excludeSettings = mysqlOnly, Cities) {
             val mysqlConnection = this.connection.connection as ConnectionImpl
             mysqlConnection.propertySet.getBooleanProperty(PropertyKey.rewriteBatchedStatements).value = true
             val cityNames = listOf("FooCity", "BarCity")
-            val generatedValues = DMLTestsData.Cities.batchInsert(cityNames) { city ->
-                this[DMLTestsData.Cities.name] = city
+            val generatedValues = Cities.batchInsert(cityNames) { city ->
+                this[Cities.name] = city
             }
 
             assertEquals(cityNames.size, generatedValues.size)
             generatedValues.forEach {
-                assertNotNull(it.getOrNull(DMLTestsData.Cities.id))
+                assertNotNull(it.getOrNull(Cities.id))
             }
         }
     }

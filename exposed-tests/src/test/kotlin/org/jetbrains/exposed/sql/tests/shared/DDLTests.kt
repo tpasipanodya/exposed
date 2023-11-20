@@ -20,7 +20,6 @@ import org.jetbrains.exposed.sql.tests.shared.dml.UserData
 import org.jetbrains.exposed.sql.tests.shared.dml.Users
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.jetbrains.exposed.sql.vendors.H2Dialect
 import org.jetbrains.exposed.sql.vendors.MysqlDialect
 import org.jetbrains.exposed.sql.vendors.OracleDialect
 import org.jetbrains.exposed.sql.vendors.PostgreSQLDialect
@@ -30,6 +29,7 @@ import org.junit.Assume
 import org.junit.Test
 import org.postgresql.util.PGobject
 import java.util.*
+import org.jetbrains.exposed.sql.tests.shared.entities.EntityCacheTests
 import org.jetbrains.exposed.sql.vendors.H2Dialect
 import kotlin.random.Random
 import kotlin.test.assertNotNull
@@ -265,7 +265,7 @@ class DDLTests : DatabaseTestsBase() {
         val testTable = object : Table("test_named_table") {}
 
         withDb(TestDB.H2) {
-            assertEquals("CREATE TABLE IF NOT EXISTS ${"test_named_table".inProperCase()}", TestTable.ddl)
+            assertEquals("CREATE TABLE IF NOT EXISTS ${"test_named_table".inProperCase()}", EntityCacheTests.TestTable.ddl)
             Users.select {
                 exists(UserData.select { Users.id eq UserData.user_id })
             }

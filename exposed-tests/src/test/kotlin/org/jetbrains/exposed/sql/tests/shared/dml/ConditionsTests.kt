@@ -178,7 +178,7 @@ class ConditionsTests : DatabaseTestsBase() {
 
     @Test
     fun testCaseWhenElseAsArgument() {
-        withCitiesAndUsers { cities, _, _ ->
+        withCitiesAndUsers {
             val original = "ORIGINAL"
             val copy = "COPY"
             val condition = Op.build { cities.id eq 1 }
@@ -195,8 +195,8 @@ class ConditionsTests : DatabaseTestsBase() {
             val function2 = Coalesce(caseCondition2, stringLiteral(copy))
 
             // confirm both formats produce identical SQL
-            val query1 = cities.slice(cities.id, function1).selectAll().prepareSQL(this, prepared = false)
-            val query2 = cities.slice(cities.id, function2).selectAll().prepareSQL(this, prepared = false)
+            val query1 = cities.slice(cities.id, function1).selectAll().prepareSQL(this.transaction, prepared = false)
+            val query2 = cities.slice(cities.id, function2).selectAll().prepareSQL(this.transaction, prepared = false)
             assertEquals(query1, query2)
 
             val results1 = cities.slice(cities.id, function1).selectAll().toList()
@@ -213,7 +213,7 @@ class ConditionsTests : DatabaseTestsBase() {
 
     @Test
     fun testChainedAndNestedCaseWhenElseSyntax() {
-        withCitiesAndUsers { cities, _, _ ->
+        withCitiesAndUsers {
             val nestedCondition = Case()
                 .When(Op.build { cities.id eq 1 }, intLiteral(1))
                 .Else(intLiteral(-1))

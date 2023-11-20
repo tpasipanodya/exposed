@@ -186,9 +186,9 @@ class InsertTests : DatabaseTestsBase() {
     fun `batchInserting using a sequence should work`() {
         withTables(Cities) {
             val names = List(25) { UUID.randomUUID().toString() }.asSequence()
-            cities.batchInsert(names) { name -> this[cities.name] = name }
+            Cities.batchInsert(names) { name -> this[Cities.name] = name }
 
-            val batchesSize = cities.selectAll().count()
+            val batchesSize = Cities.selectAll().count()
 
             assertEquals(25, batchesSize)
         }
@@ -198,9 +198,9 @@ class InsertTests : DatabaseTestsBase() {
     fun `batchInserting using empty sequence should work`() {
         withTables(Cities) {
             val names = emptySequence<String>()
-            cities.batchInsert(names) { name -> this[cities.name] = name }
+            Cities.batchInsert(names) { name -> this[Cities.name] = name }
 
-            val batchesSize = cities.selectAll().count()
+            val batchesSize = Cities.selectAll().count()
 
             assertEquals(0, batchesSize)
         }

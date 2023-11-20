@@ -19,7 +19,7 @@ class SelectBatchedTests : DatabaseTestsBase() {
     fun `selectBatched should respect 'where' expression and the provided batch size`() {
         withTables(Cities, scopedCities) {
             val names = List(100) { UUID.randomUUID().toString() }
-            cities.batchInsert(names) { name -> this[cities.name] = name }
+            Cities.batchInsert(names) { name -> this[Cities.name] = name }
 
             Cities.selectBatched(batchSize = 25) { Cities.id less 51 }
                 .toList().map { it.toCityNameList() }
@@ -68,9 +68,9 @@ class SelectBatchedTests : DatabaseTestsBase() {
     fun `when batch size is greater than the amount of available items, selectAllBatched should return 1 batch`() {
         withTables(Cities) {
             val names = List(25) { UUID.randomUUID().toString() }
-            cities.batchInsert(names) { name -> this[cities.name] = name }
+            Cities.batchInsert(names) { name -> this[Cities.name] = name }
 
-            val batches = cities.selectAllBatched(batchSize = 100).toList().map { it.toCityNameList() }
+            val batches = Cities.selectAllBatched(batchSize = 100).toList().map { it.toCityNameList() }
 
             assertEqualLists(listOf(names), batches)
         }
@@ -89,9 +89,9 @@ class SelectBatchedTests : DatabaseTestsBase() {
     fun `when there are no items of the given condition, should return an empty iterable`() {
         withTables(Cities) {
             val names = List(25) { UUID.randomUUID().toString() }
-            cities.batchInsert(names) { name -> this[cities.name] = name }
+            Cities.batchInsert(names) { name -> this[Cities.name] = name }
 
-            val batches = cities.selectBatched(batchSize = 100) { cities.id greater 50 }
+            val batches = Cities.selectBatched(batchSize = 100) { Cities.id greater 50 }
                 .toList().map { it.toCityNameList() }
 
             assertEqualLists(emptyList(), batches)

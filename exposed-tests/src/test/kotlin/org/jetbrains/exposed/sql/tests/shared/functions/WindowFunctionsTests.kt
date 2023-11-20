@@ -18,12 +18,12 @@ import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
 import org.jetbrains.exposed.sql.tests.TestDB.*
 import org.jetbrains.exposed.sql.tests.TestDB.Companion.allH2TestDB
 import org.jetbrains.exposed.sql.tests.shared.assertEqualLists
-import org.jetbrains.exposed.sql.tests.shared.dml.DMLTestsData
 import org.jetbrains.exposed.sql.tests.shared.dml.withSales
 import org.jetbrains.exposed.sql.vendors.currentDialect
 import org.junit.Test
 import java.math.BigDecimal
 import java.math.RoundingMode
+import org.jetbrains.exposed.sql.tests.shared.dml.Sales
 
 class WindowFunctionsTests : DatabaseTestsBase() {
 
@@ -411,7 +411,7 @@ class WindowFunctionsTests : DatabaseTestsBase() {
         }
     }
 
-    private fun <T> DMLTestsData.Sales.assertWindowFunctionDefinition(
+    private fun <T> Sales.assertWindowFunctionDefinition(
         definition: WindowFunctionDefinition<T>,
         expectedResult: List<T>
     ) {
@@ -427,7 +427,7 @@ class WindowFunctionsTests : DatabaseTestsBase() {
         assertEqualLists(result, expectedResult)
     }
 
-    private fun sumAmountPartitionByYearProductOrderByAmount(sales: DMLTestsData.Sales) =
+    private fun sumAmountPartitionByYearProductOrderByAmount(sales: Sales) =
         sales.amount.sum().over().partitionBy(sales.year, sales.product).orderBy(sales.amount)
 
     private fun listOfBigDecimal(vararg numbers: String?): List<BigDecimal?> {

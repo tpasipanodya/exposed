@@ -9,6 +9,9 @@ import org.jetbrains.exposed.sql.tests.shared.assertEquals
 import org.jetbrains.exposed.sql.tests.shared.assertTrue
 import org.junit.Test
 import java.util.*
+import org.jetbrains.exposed.sql.tests.shared.expectException
+import org.jetbrains.exposed.sql.vendors.MysqlDialect
+import org.jetbrains.exposed.sql.vendors.currentDialect
 
 class ReplaceTests : DatabaseTestsBase() {
 
@@ -174,24 +177,24 @@ class ReplaceTests : DatabaseTestsBase() {
         withTables(replaceNotSupported, Cities) {
             val names = List(25) { index -> index + 1 to UUID.randomUUID().toString() }.asSequence()
 
-            cities.batchReplace(names) { (index, name) ->
-                this[cities.id] = index
-                this[cities.name] = name
+            Cities.batchReplace(names) { (index, name) ->
+                this[Cities.id] = index
+                this[Cities.name] = name
             }
 
-            val namesFromDB1 = cities.selectAll().toCityNameList()
-            assertEquals(amountOfNames, namesFromDB1.size)
+            val namesFromDB1 = Cities.selectAll().toCityNameList()
+            assertEquals(25, namesFromDB1.size)
             assertEqualLists(names.unzip().second, namesFromDB1)
 
-            val namesToReplace = List(amountOfNames) { index -> index + 1 to UUID.randomUUID().toString() }.asSequence()
+            val namesToReplace = List(25) { index -> index + 1 to UUID.randomUUID().toString() }.asSequence()
 
-            cities.batchReplace(namesToReplace) { (index, name) ->
-                this[cities.id] = index
-                this[cities.name] = name
+            Cities.batchReplace(namesToReplace) { (index, name) ->
+                this[Cities.id] = index
+                this[Cities.name] = name
             }
 
-            val namesFromDB2 = cities.selectAll().toCityNameList()
-            assertEquals(amountOfNames, namesFromDB2.size)
+            val namesFromDB2 = Cities.selectAll().toCityNameList()
+            assertEquals(25, namesFromDB2.size)
             assertEqualLists(namesToReplace.unzip().second, namesFromDB2)
         }
     }
@@ -200,9 +203,9 @@ class ReplaceTests : DatabaseTestsBase() {
     fun testBatchReplaceWithEmptySequence() {
         withTables(Cities) {
             val names = emptySequence<String>()
-            cities.batchReplace(names) { name -> this[cities.name] = name }
+            Cities.batchReplace(names) { name -> this[Cities.name] = name }
 
-            val batchesSize = cities.selectAll().count()
+            val batchesSize = Cities.selectAll().count()
 
             assertEquals(0, batchesSize)
         }

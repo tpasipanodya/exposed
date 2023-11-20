@@ -10,7 +10,7 @@ import org.jetbrains.exposed.sql.tests.TestDB
 import org.jetbrains.exposed.sql.tests.currentDialectTest
 import org.jetbrains.exposed.sql.tests.shared.assertEqualCollections
 import org.jetbrains.exposed.sql.tests.shared.assertEquals
-import org.jetbrains.exposed.sql.tests.shared.dml.UserFlags
+import org.jetbrains.exposed.sql.tests.shared.dml.Users
 import org.jetbrains.exposed.sql.tests.shared.dml.withCitiesAndUsers
 import org.jetbrains.exposed.sql.vendors.*
 import org.junit.Test

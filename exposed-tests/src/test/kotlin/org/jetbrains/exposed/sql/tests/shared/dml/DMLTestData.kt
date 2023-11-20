@@ -10,6 +10,9 @@ import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
 import org.jetbrains.exposed.sql.tests.TestDB
 import java.math.BigDecimal
 import java.util.*
+import org.jetbrains.exposed.sql.tests.shared.assertEquals
+import org.jetbrains.exposed.sql.tests.shared.assertFalse
+import org.jetbrains.exposed.sql.tests.shared.assertTrue
 
 
 object Cities : Table() {
