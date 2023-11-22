@@ -6,7 +6,6 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
 import org.jetbrains.exposed.sql.tests.TestDB
 import org.jetbrains.exposed.sql.tests.currentDialectTest
-import org.jetbrains.exposed.sql.tests.shared.assertEqualLists
 import org.jetbrains.exposed.sql.tests.shared.expectException
 import org.jetbrains.exposed.sql.vendors.H2Dialect
 import org.jetbrains.exposed.sql.vendors.SQLiteDialect
@@ -128,7 +127,7 @@ class DeleteTests : DatabaseTestsBase() {
 
     @Test
     fun testDeleteWithLimit02() {
-        val dialects = TestDB.values().toList() - notSupportLimit
+        val dialects = TestDB.entries - notSupportLimit
         withCitiesAndUsers(dialects) {
             expectException<UnsupportedByDialectException> {
                 userData.deleteWhere(limit = 1) {
