@@ -1,11 +1,9 @@
+@file:Suppress("MaximumLineLength", "LongMethod")
+
 package org.jetbrains.exposed
 
 import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.javatime.date
-import org.jetbrains.exposed.sql.javatime.datetime
-import org.jetbrains.exposed.sql.javatime.duration
-import org.jetbrains.exposed.sql.javatime.time
-import org.jetbrains.exposed.sql.javatime.timestamp
+import org.jetbrains.exposed.sql.javatime.*
 import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
 import org.jetbrains.exposed.sql.tests.TestDB
 import org.jetbrains.exposed.sql.tests.shared.MiscTable
@@ -250,10 +248,14 @@ class MiscTableTest : DatabaseTestsBase() {
         }
     }
 
+    // these DB take the datetime nanosecond value and round up to default precision
+    // which causes flaky comparison failures if not cast to TIMESTAMP first
+    private val requiresExplicitDTCast = listOf(TestDB.ORACLE, TestDB.H2_ORACLE, TestDB.H2_PSQL, TestDB.H2_SQLSERVER)
+
     @Test
     fun testSelect01() {
         val tbl = Misc
-        withTables(tbl) {
+        withTables(tbl) { testDb ->
             val date = today
             val time = LocalTime.now()
             val dateTime = LocalDateTime.now()
@@ -693,7 +695,7 @@ class MiscTableTest : DatabaseTestsBase() {
     @Test
     fun testSelect02() {
         val tbl = Misc
-        withTables(tbl) {
+        withTables(tbl) { testDb ->
             val date = today
             val time = LocalTime.now()
             val dateTime = LocalDateTime.now()
@@ -1246,7 +1248,7 @@ class MiscTableTest : DatabaseTestsBase() {
                 exec("INSERT IGNORE INTO `zerodatetimetable` (dt1,dt2,ts1,ts2) VALUES ('0000-00-00 00:00:00', '0000-00-00 00:00:00', '0000-00-00 00:00:00', '0000-00-00 00:00:00');")
                 val row = ZeroDateTimeTable.selectAll().first()
 
-                for (c in listOf(ZeroDateTimeTable.dt1, ZeroDateTimeTable.dt2, ZeroDateTimeTable.ts1, ZeroDateTimeTable.ts2)) {
+                listOf(ZeroDateTimeTable.dt1, ZeroDateTimeTable.dt2, ZeroDateTimeTable.ts1, ZeroDateTimeTable.ts2).forEach { c ->
                     val actual = row[c]
                     assertNull(actual, "$c expected null but was $actual")
                 }

@@ -36,8 +36,8 @@ open class BatchUpdateStatement<T>(val table: T) : UpdateStatement(table, null) 
 
     override fun <T, S : T?> update(column: Column<T>, value: Expression<S>) = error("Expressions unsupported in batch update")
 
-    override fun prepareSQL(transaction: Transaction): String =
-        "${super.prepareSQL(transaction)} WHERE ${transaction.identity(table.id)} = ?${
+    override fun prepareSQL(transaction: Transaction, prepared: Boolean): String =
+        "${super.prepareSQL(transaction, prepared)} WHERE ${transaction.identity(table.id)} = ?${
             table.materializeDefaultFilter()?.let { " AND ($it)" } ?: ""
         }"
 

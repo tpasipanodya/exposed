@@ -12,7 +12,7 @@ import org.jetbrains.exposed.sql.tests.shared.assertTrue
 import org.jetbrains.exposed.sql.tests.shared.dml.Cities
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
-import org.jetbrains.exposed.sql.transactions.experimental.suspendedTransaction
+import org.jetbrains.exposed.sql.transactions.experimental.withSuspendTransaction
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.transactions.transactionManager
 import org.junit.After
@@ -26,20 +26,26 @@ import kotlin.test.assertEquals
 class MultiDatabaseTest {
 
     private val db1 by lazy {
-        Database.connect("jdbc:h2:mem:db1;DB_CLOSE_DELAY=-1;", "org.h2.Driver", "root", "", databaseConfig = DatabaseConfig {
-            defaultIsolationLevel = Connection.TRANSACTION_READ_COMMITTED
-        })
+        Database.connect(
+            "jdbc:h2:mem:db1;DB_CLOSE_DELAY=-1;", "org.h2.Driver", "root", "",
+            databaseConfig = DatabaseConfig {
+                defaultIsolationLevel = Connection.TRANSACTION_READ_COMMITTED
+            }
+        )
     }
     private val db2 by lazy {
-        Database.connect("jdbc:h2:mem:db2;DB_CLOSE_DELAY=-1;", "org.h2.Driver", "root", "", databaseConfig = DatabaseConfig {
-            defaultIsolationLevel = Connection.TRANSACTION_READ_COMMITTED
-        })
+        Database.connect(
+            "jdbc:h2:mem:db2;DB_CLOSE_DELAY=-1;", "org.h2.Driver", "root", "",
+            databaseConfig = DatabaseConfig {
+                defaultIsolationLevel = Connection.TRANSACTION_READ_COMMITTED
+            }
+        )
     }
     private var currentDB: Database? = null
 
     @Before
     fun before() {
-        Assume.assumeTrue(TestDB.H2 in TestDB.enabledInTests())
+        Assume.assumeTrue(TestDB.H2 in TestDB.enabledDialects())
         if (TransactionManager.isInitialized()) {
             currentDB = TransactionManager.currentOrNull()?.db
         }
@@ -168,7 +174,7 @@ class MultiDatabaseTest {
                 assertEquals(2L, Cities.selectAll().count())
                 assertEquals("city3", Cities.selectAll().last()[Cities.name])
 
-                tr1.suspendedTransaction {
+                tr1.withSuspendTransaction {
                     assertEquals(1L, Cities.selectAll().count())
                     Cities.insert { it[name] = "city4" }
                     Cities.insert { it[name] = "city5" }

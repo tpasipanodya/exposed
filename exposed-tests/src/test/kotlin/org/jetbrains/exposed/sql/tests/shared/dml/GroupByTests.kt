@@ -398,14 +398,14 @@ class GroupByTests : DatabaseTestsBase() {
                 assertNull(it["Prague"])
             }
 
-            users.name.groupConcat(separator = " | ", orderBy = users.name to SortOrder.ASC).checkExcept{
+            users.name.groupConcat(separator = " | ", orderBy = users.name to SortOrder.ASC).checkExcept {
                 assertEquals(3, it.size)
                 assertEquals("Andrey", it["St. Petersburg"])
                 assertEquals("Eugene | Sergey", it["Munich"])
                 assertNull(it["Prague"])
             }
 
-            users.name.groupConcat(separator = " | ", orderBy = users.name to SortOrder.DESC).checkExcept{
+            users.name.groupConcat(separator = " | ", orderBy = users.name to SortOrder.DESC).checkExcept {
                 assertEquals(3, it.size)
                 assertEquals("Andrey", it["St. Petersburg"])
                 assertEquals("Sergey | Eugene", it["Munich"])
@@ -452,7 +452,7 @@ class GroupByTests : DatabaseTestsBase() {
                     assertEquals(1, it.size)
                     when (currentDialectTest) {
                         is MariaDBDialect -> assertEquals(true, it["Munich"] in listOf("Sergey, Eugene", "Eugene, Sergey"))
-                        is SQLServerDialect -> assertEquals("Eugene, Sergey", it["Munich"])
+                        is SQLServerDialect -> assertEquals("Sergey, Eugene", it["Munich"])
                         else -> assertEquals("Sergey, Eugene", it["Munich"])
                     }
                 assertNull(it["Prague"])
@@ -460,16 +460,10 @@ class GroupByTests : DatabaseTestsBase() {
 
             scopedUsers.name
                 .groupConcat(separator = " | ", distinct = true, orderBy = scopedUsers.name to SortOrder.ASC)
-                .checkExcept(OracleDialect) {
-                    assertEquals(1, it.size)
+                .checkExcept {
                     when (currentDialectTest) {
                         is MariaDBDialect -> assertEquals(true, it["Munich"] in listOf("Sergey | Eugene", "Eugene | Sergey"))
-                        is MysqlDialect,
-                        is SQLServerDialect,
-                        is H2Dialect,
-                        is PostgreSQLDialect,
-                        is PostgreSQLNGDialect -> assertEquals("Eugene | Sergey", it["Munich"])
-                        else -> assertEquals("Sergey | Eugene", it["Munich"])
+                        else -> assertEquals("Eugene | Sergey", it["Munich"])
                     }
                     assertNull(it["Prague"])
                 }
