@@ -19,7 +19,7 @@ class ResultRow(
      *
      * @see [getOrNull] to get null in the cases an exception would be thrown
      */
-    operator fun <T> get(expression: Expression<T>): T = getInternal(expression, checkNullability = true)
+    infix operator fun <T> get(expression: Expression<T>): T = getInternal(expression, checkNullability = true)
 
     /**
      * Sets the value of a given expression on this row.

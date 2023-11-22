@@ -265,7 +265,7 @@ class DDLTests : DatabaseTestsBase() {
         val testTable = object : Table("test_named_table") {}
 
         withDb(TestDB.H2) {
-            assertEquals("CREATE TABLE IF NOT EXISTS ${"test_named_table".inProperCase()}", EntityCacheTests.TestTable.ddl)
+            assertEquals("CREATE TABLE IF NOT EXISTS ${"test_named_table".inProperCase()}", testTable.ddl)
             Users.select {
                 exists(UserData.select { Users.id eq UserData.user_id })
             }

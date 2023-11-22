@@ -36,7 +36,7 @@ object Users : Table() {
 
 fun munichId() = Cities
     .select { Cities.name eq "Munich" }
-    .first()[Cities.id]
+    .first() get Cities.id
 
 object ScopedUsers : Table("scoped_users") {
     val id: Column<String> = varchar("id", 10)

@@ -107,7 +107,8 @@ abstract class DatabaseTestsBase {
         withDb(dialect, statement)
     }
 
-    fun withTables(excludeSettings: Collection<TestDB>, vararg tables: Table, statement: Transaction.(TestDB) -> Unit) {
+    fun
+            withTables(excludeSettings: Collection<TestDB>, vararg tables: Table, statement: Transaction.(TestDB) -> Unit) {
         Assume.assumeFalse(dialect in excludeSettings)
 
         withDb(dialect) {

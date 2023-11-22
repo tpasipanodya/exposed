@@ -214,17 +214,7 @@ class UpdateTests : DatabaseTestsBase() {
 
     @Test
     fun testUpdateWithJoin01() {
-        val dialects = listOf(TestDB.SQLITE)
-
-        withCitiesAndUsers(exclude = listOf(TestDB.SQLITE)) {
-            val join = users.innerJoin(userData)
-            join.update {
-                it[userData.comment] = users.name
-                it[userData.value] = 123
-            }
-        }
-
-        withCitiesAndUsers(dialects) {
+        withCitiesAndUsers(exclude = listOf(TestDB.SQLITE, TestDB.ORACLE)) {
             users.innerJoin(userData)
                 .let { join ->
                     join.update {

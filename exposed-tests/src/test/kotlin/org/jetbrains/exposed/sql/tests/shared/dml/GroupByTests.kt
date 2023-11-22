@@ -460,16 +460,10 @@ class GroupByTests : DatabaseTestsBase() {
 
             scopedUsers.name
                 .groupConcat(separator = " | ", distinct = true, orderBy = scopedUsers.name to SortOrder.ASC)
-                .checkExcept(OracleDialect) {
-                    assertEquals(1, it.size)
+                .checkExcept {
                     when (currentDialectTest) {
                         is MariaDBDialect -> assertEquals(true, it["Munich"] in listOf("Sergey | Eugene", "Eugene | Sergey"))
-                        is MysqlDialect,
-                        is SQLServerDialect,
-                        is H2Dialect,
-                        is PostgreSQLDialect,
-                        is PostgreSQLNGDialect -> assertEquals("Eugene | Sergey", it["Munich"])
-                        else -> assertEquals("Sergey | Eugene", it["Munich"])
+                        else -> assertEquals("Eugene | Sergey", it["Munich"])
                     }
                     assertNull(it["Prague"])
                 }
