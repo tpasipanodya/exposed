@@ -24,20 +24,26 @@ import kotlin.test.assertNull
 class MultiDatabaseEntityTest {
 
     private val db1 by lazy {
-        Database.connect("jdbc:h2:mem:db1;DB_CLOSE_DELAY=-1;", "org.h2.Driver", "root", "", databaseConfig = DatabaseConfig {
-            defaultIsolationLevel = Connection.TRANSACTION_READ_COMMITTED
-        })
+        Database.connect(
+            "jdbc:h2:mem:db1;DB_CLOSE_DELAY=-1;", "org.h2.Driver", "root", "",
+            databaseConfig = DatabaseConfig {
+                defaultIsolationLevel = Connection.TRANSACTION_READ_COMMITTED
+            }
+        )
     }
     private val db2 by lazy {
-        Database.connect("jdbc:h2:mem:db2;DB_CLOSE_DELAY=-1;", "org.h2.Driver", "root", "", databaseConfig = DatabaseConfig {
-            defaultIsolationLevel = Connection.TRANSACTION_READ_COMMITTED
-        })
+        Database.connect(
+            "jdbc:h2:mem:db2;DB_CLOSE_DELAY=-1;", "org.h2.Driver", "root", "",
+            databaseConfig = DatabaseConfig {
+                defaultIsolationLevel = Connection.TRANSACTION_READ_COMMITTED
+            }
+        )
     }
     private var currentDB: Database? = null
 
     @Before
     fun before() {
-        Assume.assumeTrue(TestDB.H2 in TestDB.enabledInTests())
+        Assume.assumeTrue(TestDB.H2 in TestDB.enabledDialects())
         if (TransactionManager.isInitialized()) {
             currentDB = TransactionManager.currentOrNull()?.db
         }
@@ -51,7 +57,7 @@ class MultiDatabaseEntityTest {
 
     @After
     fun after() {
-        if (TestDB.H2 in TestDB.enabledInTests()) {
+        if (TestDB.H2 in TestDB.enabledDialects()) {
             TransactionManager.resetCurrent(currentDB?.transactionManager)
             transaction(db1) {
                 SchemaUtils.drop(EntityTestsData.XTable, EntityTestsData.YTable)
@@ -190,7 +196,8 @@ class MultiDatabaseEntityTest {
                 b2Reread.y = null
             }
         }
-        inTopLevelTransaction(Connection.TRANSACTION_READ_COMMITTED, 1, db = db1) {
+        inTopLevelTransaction(Connection.TRANSACTION_READ_COMMITTED, db = db1) {
+            repetitionAttempts = 1
             assertNull(EntityTestsData.BEntity.testCache(db1b1.id))
             val b1Reread = EntityTestsData.BEntity[db1b1.id]
             assertEquals(db1b1.id, b1Reread.id)

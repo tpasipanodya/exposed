@@ -10,14 +10,9 @@ import org.jetbrains.exposed.sql.tests.TestDB
 import org.jetbrains.exposed.sql.tests.currentDialectTest
 import org.jetbrains.exposed.sql.tests.shared.assertEqualCollections
 import org.jetbrains.exposed.sql.tests.shared.assertEquals
-import org.jetbrains.exposed.sql.tests.shared.dml.UserFlags
+import org.jetbrains.exposed.sql.tests.shared.dml.Users
 import org.jetbrains.exposed.sql.tests.shared.dml.withCitiesAndUsers
-import org.jetbrains.exposed.sql.vendors.H2Dialect
-import org.jetbrains.exposed.sql.vendors.OracleDialect
-import org.jetbrains.exposed.sql.vendors.PostgreSQLDialect
-import org.jetbrains.exposed.sql.vendors.SQLServerDialect
-import org.jetbrains.exposed.sql.vendors.SQLiteDialect
-import org.jetbrains.exposed.sql.vendors.h2Mode
+import org.jetbrains.exposed.sql.vendors.*
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -128,8 +123,11 @@ class FunctionsTests : DatabaseTestsBase() {
     fun testBitwiseAnd1() {
         withCitiesAndUsers {
             // SQLServer and Oracle don't support = on bit values
-            val doesntSupportBitwiseEQ = currentDialectTest is SQLServerDialect || currentDialectTest is OracleDialect || currentDialectTest.h2Mode == H2Dialect.H2CompatibilityMode.Oracle
-            val adminFlag = UserFlags.IS_ADMIN
+            val doesntSupportBitwiseEQ =
+                currentDialectTest is SQLServerDialect ||
+                currentDialectTest is OracleDialect ||
+                currentDialectTest.h2Mode == H2Dialect.H2CompatibilityMode.Oracle
+            val adminFlag = Users.Flags.IS_ADMIN
             val adminAndFlagsExpr = Expression.build { (users.flags bitwiseAnd adminFlag) }
             val adminEq = Expression.build { adminAndFlagsExpr eq adminFlag }
             val toSlice = listOfNotNull(adminAndFlagsExpr, adminEq.takeIf { !doesntSupportBitwiseEQ })
@@ -155,7 +153,7 @@ class FunctionsTests : DatabaseTestsBase() {
         withCitiesAndUsers {
             // SQLServer and Oracle don't support = on bit values
             val doesntSupportBitwiseEQ = currentDialectTest is SQLServerDialect || currentDialectTest is OracleDialect
-            val adminFlag = UserFlags.IS_ADMIN
+            val adminFlag = Users.Flags.IS_ADMIN
             val adminAndFlagsExpr = Expression.build { (users.flags bitwiseAnd intLiteral(adminFlag)) }
             val adminEq = Expression.build { adminAndFlagsExpr eq adminFlag }
             val toSlice = listOfNotNull(adminAndFlagsExpr, adminEq.takeIf { !doesntSupportBitwiseEQ })
@@ -237,7 +235,7 @@ class FunctionsTests : DatabaseTestsBase() {
     @Test
     fun testFlag01() {
         withCitiesAndUsers {
-            val adminFlag = UserFlags.IS_ADMIN
+            val adminFlag = Users.Flags.IS_ADMIN
             val r = users.slice(users.id).select { users.flags hasFlag adminFlag }.orderBy(users.id).toList()
             assertEquals(2, r.size)
             assertEquals("andrey", r[0][users.id])
@@ -355,16 +353,16 @@ class FunctionsTests : DatabaseTestsBase() {
     @Test
     fun testLocate03() {
         withCitiesAndUsers {
-            val isCaseSensitiveDialect = currentDialectTest is SQLiteDialect ||
-                currentDialectTest is PostgreSQLDialect ||
-                currentDialectTest is H2Dialect
+            val isNotCaseSensitiveDialect =
+                currentDialectTest is MysqlDialect ||
+                currentDialectTest is SQLServerDialect
 
             val locate = cities.name.locate("p")
             val results = cities.slice(locate).selectAll().toList()
 
-            assertEquals(if (isCaseSensitiveDialect) 0 else 5, results[0][locate]) // St. Petersburg
+            assertEquals(if (isNotCaseSensitiveDialect) 5 else 0, results[0][locate]) // St. Petersburg
             assertEquals(0, results[1][locate]) // Munich
-            assertEquals(if (isCaseSensitiveDialect) 0 else 1, results[2][locate]) // Prague
+            assertEquals(if (isNotCaseSensitiveDialect) 1 else 0, results[2][locate]) // Prague
         }
     }
 

@@ -202,7 +202,7 @@ class UpdateTests : DatabaseTestsBase() {
 
     @Test
     fun testUpdateWithLimit02() {
-        val dialects = TestDB.values().toList() - notSupportLimit
+        val dialects = TestDB.entries - notSupportLimit
         withCitiesAndUsers(dialects) {
             expectException<UnsupportedByDialectException> {
                 users.update({ users.id like "a%" }, 1) {
@@ -214,17 +214,7 @@ class UpdateTests : DatabaseTestsBase() {
 
     @Test
     fun testUpdateWithJoin01() {
-        val dialects = listOf(TestDB.SQLITE)
-
-        withCitiesAndUsers(exclude = listOf(TestDB.SQLITE)) {
-            val join = users.innerJoin(userData)
-            join.update {
-                it[userData.comment] = users.name
-                it[userData.value] = 123
-            }
-        }
-
-        withCitiesAndUsers(dialects) {
+        withCitiesAndUsers(exclude = listOf(TestDB.SQLITE, TestDB.ORACLE)) {
             users.innerJoin(userData)
                 .let { join ->
                     join.update {
@@ -355,7 +345,7 @@ class UpdateTests : DatabaseTestsBase() {
             val tableAId = reference("table_a_id", tableA)
         }
 
-        val supportWhere = TestDB.values().toList() - TestDB.allH2TestDB - TestDB.SQLITE + TestDB.H2_ORACLE
+        val supportWhere = TestDB.entries - TestDB.allH2TestDB - TestDB.SQLITE + TestDB.H2_ORACLE
 
         withTables(tableA, tableB) { testingDb ->
             val aId = tableA.insertAndGetId { it[foo] = "foo" }

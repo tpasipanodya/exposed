@@ -3,10 +3,13 @@ package org.jetbrains.exposed.sql.vendors
 import org.jetbrains.exposed.exceptions.throwUnsupportedException
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
+import java.sql.DatabaseMetaData
+import java.util.*
 
 internal object OracleDataTypeProvider : DataTypeProvider() {
     override fun byteType(): String = "SMALLINT"
-    override fun ubyteType(): String = "SMALLINT"
+    override fun ubyteType(): String = "NUMBER(4)"
+    override fun ushortType(): String = "NUMBER(6)"
     override fun integerType(): String = "NUMBER(12)"
     override fun integerAutoincType(): String = "NUMBER(12)"
     override fun uintegerType(): String = "NUMBER(13)"
@@ -25,19 +28,40 @@ internal object OracleDataTypeProvider : DataTypeProvider() {
 
     override fun binaryType(length: Int): String {
         @Suppress("MagicNumber")
-        return if (length < 2000) "RAW ($length)"
-        else binaryType()
+        return if (length < 2000) "RAW ($length)" else binaryType()
     }
 
-    override fun uuidType(): String = "RAW(16)"
+    override fun uuidType(): String {
+        return if ((currentDialect as? H2Dialect)?.h2Mode == H2Dialect.H2CompatibilityMode.Oracle) {
+            "UUID"
+        } else {
+            return "RAW(16)"
+        }
+    }
+
+    override fun uuidToDB(value: UUID): Any {
+        return if ((currentDialect as? H2Dialect)?.h2Mode == H2Dialect.H2CompatibilityMode.Oracle) {
+            H2DataTypeProvider.uuidToDB(value)
+        } else {
+            super.uuidToDB(value)
+        }
+    }
+
     override fun dateTimeType(): String = "TIMESTAMP"
     override fun booleanType(): String = "CHAR(1)"
     override fun booleanToStatementString(bool: Boolean) = if (bool) "1" else "0"
     override fun booleanFromStringToBoolean(value: String): Boolean = try {
         value.toLong() != 0L
     } catch (ex: NumberFormatException) {
-        error("Unexpected value of type Boolean: $value")
+        @Suppress("SwallowedException")
+        try {
+            value.lowercase().toBooleanStrict()
+        } catch (ex: IllegalArgumentException) {
+            error("Unexpected value of type Boolean: $value")
+        }
     }
+
+    override fun jsonType(): String = "VARCHAR2(4000)"
 
     override fun processForDefaultValue(e: Expression<*>): String = when {
         e is LiteralOp<*> && (e.columnType as? IDateColumnType)?.hasTimePart == false -> "DATE ${super.processForDefaultValue(e)}"
@@ -142,6 +166,44 @@ internal object OracleFunctionProvider : FunctionProvider() {
         append(")")
     }
 
+    override fun <T> jsonExtract(
+        expression: Expression<T>,
+        vararg path: String,
+        toScalar: Boolean,
+        jsonType: IColumnType,
+        queryBuilder: QueryBuilder
+    ) {
+        if (path.size > 1) {
+            TransactionManager.current().throwUnsupportedException("Oracle does not support multiple JSON path arguments")
+        }
+        queryBuilder {
+            append(if (toScalar) "JSON_VALUE" else "JSON_QUERY")
+            append("(", expression, ", ")
+            append("'$", path.firstOrNull() ?: "", "'")
+            append(")")
+        }
+    }
+
+    override fun jsonExists(
+        expression: Expression<*>,
+        vararg path: String,
+        optional: String?,
+        jsonType: IColumnType,
+        queryBuilder: QueryBuilder
+    ) {
+        if (path.size > 1) {
+            TransactionManager.current().throwUnsupportedException("Oracle does not support multiple JSON path arguments")
+        }
+        queryBuilder {
+            append("JSON_EXISTS(", expression, ", ")
+            append("'$", path.firstOrNull() ?: "", "'")
+            optional?.let {
+                append(" $it")
+            }
+            append(")")
+        }
+    }
+
     override fun update(
         target: Table,
         columnsAndValues: List<Pair<Column<*>, Any?>>,
@@ -191,10 +253,32 @@ internal object OracleFunctionProvider : FunctionProvider() {
         }
 
         limit?.let {
-            "WHERE ROWNUM <= $it"
+            +" WHERE ROWNUM <= $it"
         }
 
         toString()
+    }
+
+    override fun upsert(
+        table: Table,
+        data: List<Pair<Column<*>, Any?>>,
+        onUpdate: List<Pair<Column<*>, Expression<*>>>?,
+        where: Op<Boolean>?,
+        transaction: Transaction,
+        vararg keys: Column<*>
+    ): String {
+        val statement = super.upsert(table, data, onUpdate, where, transaction, *keys)
+
+        val dualTable = data.appendTo(QueryBuilder(true), prefix = "(SELECT ", postfix = " FROM DUAL) S") { (column, value) ->
+            registerArgument(column, value)
+            +" AS "
+            append(transaction.identity(column))
+        }.toString()
+
+        val (leftReserved, rightReserved) = " USING " to " ON "
+        val leftBoundary = statement.indexOf(leftReserved) + leftReserved.length
+        val rightBoundary = statement.indexOf(rightReserved)
+        return statement.replaceRange(leftBoundary, rightBoundary, dualTable)
     }
 
     override fun delete(
@@ -227,8 +311,17 @@ open class OracleDialect : VendorDialect(dialectName, OracleDataTypeProvider, Or
     override val supportsOnlyIdentifiersInGeneratedKeys: Boolean = true
     override val supportsDualTableConcept: Boolean = true
     override val supportsOrderByNullsFirstLast: Boolean = true
+    override val supportsOnUpdate: Boolean = false
+    override val supportsSetDefaultReferenceOption: Boolean = false
+
+    // Preventing the deletion of a parent row if a child row references it is the default behaviour in Oracle.
+    override val supportsRestrictReferenceOption: Boolean = false
 
     override fun isAllowedAsColumnDefault(e: Expression<*>): Boolean = true
+
+    override fun dropIndex(tableName: String, indexName: String, isUnique: Boolean, isPartialOrFunctional: Boolean): String {
+        return "DROP INDEX ${identifierManager.quoteIfNecessary(indexName)}"
+    }
 
     override fun modifyColumn(column: Column<*>, columnDiff: ColumnDiff): List<String> {
         val result = super.modifyColumn(column, columnDiff).map {
@@ -246,12 +339,15 @@ open class OracleDialect : VendorDialect(dialectName, OracleDataTypeProvider, Or
 
     override fun createDatabase(name: String): String = "CREATE DATABASE ${name.inProperCase()}"
 
-    override fun dropDatabase(name: String): String = "DROP DATABASE ${name.inProperCase()}"
+    override fun listDatabases(): String = error("This operation is not supported by Oracle dialect")
+
+    override fun dropDatabase(name: String): String = "DROP DATABASE"
 
     override fun setSchema(schema: Schema): String = "ALTER SESSION SET CURRENT_SCHEMA = ${schema.identifier}"
 
     override fun createSchema(schema: Schema): String = buildString {
         if ((schema.quota == null) xor (schema.on == null)) {
+            @Suppress("UseRequire")
             throw IllegalArgumentException("You must either provide both <quota> and <on> options or non of them")
         }
 
@@ -271,5 +367,16 @@ open class OracleDialect : VendorDialect(dialectName, OracleDataTypeProvider, Or
         }
     }
 
-    companion object : DialectNameProvider("oracle")
+    /**
+     * The SQL that gets the constraint information for Oracle returns a 1 for NO ACTION and does not support RESTRICT.
+     * `decode (f.delete_rule, 'CASCADE', 0, 'SET NULL', 2, 1) as delete_rule`
+     */
+    override fun resolveRefOptionFromJdbc(refOption: Int): ReferenceOption = when (refOption) {
+        DatabaseMetaData.importedKeyCascade -> ReferenceOption.CASCADE
+        DatabaseMetaData.importedKeySetNull -> ReferenceOption.SET_NULL
+        DatabaseMetaData.importedKeyRestrict -> ReferenceOption.NO_ACTION
+        else -> currentDialect.defaultReferenceOption
+    }
+
+    companion object : DialectNameProvider("Oracle")
 }

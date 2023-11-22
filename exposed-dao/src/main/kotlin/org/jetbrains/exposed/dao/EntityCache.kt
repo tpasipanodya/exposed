@@ -14,7 +14,7 @@ val Transaction.entityCache: EntityCache by transactionScope { EntityCache(this)
 class EntityCache(private val transaction: Transaction) {
     private var flushingEntities = false
     private var initializingEntities: LinkedIdentityHashSet<Entity<*>> = LinkedIdentityHashSet()
-    internal val pendingInitializationLambdas = IdentityHashMap<Entity<*>, MutableList<(Entity<*>)->Unit>>()
+    internal val pendingInitializationLambdas = IdentityHashMap<Entity<*>, MutableList<(Entity<*>) -> Unit>>()
     val data = LinkedHashMap<IdTable<*>, MutableMap<Any, Entity<*>>>()
     internal val inserts = LinkedHashMap<IdTable<*>, MutableSet<Entity<*>>>()
     private val updates = LinkedHashMap<IdTable<*>, MutableSet<Entity<*>>>()
@@ -24,7 +24,6 @@ class EntityCache(private val transaction: Transaction) {
      * Amount of entities to keep in a cache per an Entity class.
      * On setting a new value all data stored in cache will be adjusted to a new size
      */
-    @Suppress("MemberVisibilityCanBePrivate")
     var maxEntitiesToStore = transaction.db.config.maxEntitiesToStoreInCachePerEntity
         set(value) {
             val diff = value - field
