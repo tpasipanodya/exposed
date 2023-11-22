@@ -18,7 +18,10 @@ import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
 import java.math.BigDecimal
 import java.util.*
+import org.jetbrains.exposed.sql.addLogger
+import org.jetbrains.exposed.sql.deleteAll
 import kotlin.concurrent.thread
+import org.jetbrains.exposed.sql.StdOutSqlLogger
 
 
 val TEST_DIALECTS: HashSet<String> = System.getProperty(
@@ -108,10 +111,10 @@ abstract class DatabaseTestsBase {
         Assume.assumeFalse(dialect in excludeSettings)
 
         withDb(dialect) {
-            try {
-                SchemaUtils.drop(*tables)
-            } catch (_: Throwable) {
-            }
+            addLogger(StdOutSqlLogger)
+
+            try { SchemaUtils.drop(*tables) }
+            catch (e: Throwable) {}
 
             SchemaUtils.create(*tables)
             try {

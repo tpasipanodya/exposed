@@ -23,8 +23,8 @@ jobs:
         with:
           distribution: zulu
           java-version: 19
-#      - name: Start Databases
-#        run: ./scripts/setup.sh
+      - name: Prepare Docker
+        run: docker context use default
       - name: Build & Deploy
         uses: gradle/gradle-build-action@v2
         env:

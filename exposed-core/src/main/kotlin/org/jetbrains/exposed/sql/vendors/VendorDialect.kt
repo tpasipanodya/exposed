@@ -62,16 +62,14 @@ abstract class VendorDialect(
 
     override fun tableExists(table: Table): Boolean {
         return table.schemaName?.let { schema ->
-            getAllTableNamesCache().getValue(schema.inProperCase()).any {
-                it == table.nameInDatabaseCase()
-            }
+            getAllTableNamesCache()
+                .getValue(schema.inProperCase())
+                .any { it == table.nameInDatabaseCase() }
         } ?: run {
             val (schema, allTables) = TransactionManager.current().connection.metadata {
                 tableNamesByCurrentSchema(getAllTableNamesCache())
             }
-            allTables.any {
-                it.metadataMatchesTable(schema, table)
-            }
+            allTables.any { it.metadataMatchesTable(schema, table) }
         }
     }
 
@@ -79,9 +77,13 @@ abstract class VendorDialect(
         return when {
             schema.isEmpty() -> this == table.nameInDatabaseCaseUnquoted()
             else -> {
+                val unsanitizedTableName = table.tableNameWithoutScheme
                 val sanitizedTableName = table.tableNameWithoutSchemeSanitized
-                val nameInDb = "$schema.$sanitizedTableName".inProperCase()
-                this == nameInDb
+
+                val nameInDb = "$schema.$unsanitizedTableName".inProperCase()
+                val unquotedNameInDb = "$schema.$sanitizedTableName".inProperCase()
+
+                this == nameInDb || this == unquotedNameInDb
             }
         }
     }

@@ -64,9 +64,9 @@ class DeleteTests : DatabaseTestsBase() {
                     assertEquals("sergey", sergeyId)
 
                     scopedUsers.deleteWhere { scopedUsers.name eq "Alex" }
-                    val alexExists = exists(scopedUsers.stripDefaultFilter().select { scopedUsers.name eq "Alex" })
-                    assertEqualLists(scopedUsers.slice(alexExists).selectAll().take(1).map { it[alexExists] },
-                                 listOf(true))
+                    scopedUsers.stripDefaultFilter()
+                        .select { scopedUsers.name eq "Alex" }
+                        .any().let { assertTrue(it) }
 
                     scopedUsers.deleteWhere { scopedUsers.name like "%er%" }
                     scopedUsers.slice(scopedUsers.id)
@@ -76,8 +76,10 @@ class DeleteTests : DatabaseTestsBase() {
                     assertEquals(4, scopedUsers.stripDefaultFilter().selectAll().count())
 
                     scopedUsers.stripDefaultFilter().deleteWhere { scopedUsers.name eq "Alex" }
-                    assertEqualLists(scopedUsers.slice(alexExists).selectAll().take(1).map { it[alexExists] },
-                                 listOf(false))
+                    scopedUsers.stripDefaultFilter()
+                        .select { scopedUsers.name eq "Alex" }
+                        .any().let { assertFalse(it) }
+
                     assertEquals(3, scopedUsers.stripDefaultFilter().selectAll().count())
                 }
         }
