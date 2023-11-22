@@ -44,7 +44,7 @@ publishing {
     }
     publications {
         create<MavenPublication>("bom") {
-            version = if (isReleaseBuild()) "${project.version}" else "${project.version}-SNAPSHOT-"
+            version = if (isReleaseBuild()) "${project.version}" else "${project.version}-SNAPSHOT"
             from(components.getByName("javaPlatform"))
             pom { setPomMetadata(project) }
             signPublicationIfKeyPresent(project)

@@ -23,10 +23,15 @@ import org.springframework.transaction.annotation.TransactionManagementConfigure
 open class TestConfig : TransactionManagementConfigurer {
 
     @Bean
-    open fun ds(): EmbeddedDatabase = EmbeddedDatabaseBuilder().setName("embeddedTest").setType(EmbeddedDatabaseType.H2).build()
+    open fun ds(): EmbeddedDatabase = EmbeddedDatabaseBuilder().setName(
+        "embeddedTest"
+    ).setType(EmbeddedDatabaseType.H2).build()
 
     @Bean
-    override fun annotationDrivenTransactionManager(): PlatformTransactionManager = SpringTransactionManager(ds(), DatabaseConfig {})
+    override fun annotationDrivenTransactionManager(): PlatformTransactionManager = SpringTransactionManager(
+        ds(),
+        DatabaseConfig { useNestedTransactions = true }
+    )
 
     @Bean
     open fun service(): Service = Service()
@@ -38,8 +43,12 @@ open class TestConfig : TransactionManagementConfigurer {
 @RunWith(SpringJUnit4ClassRunner::class)
 @ContextConfiguration(classes = [TestConfig::class])
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
+@Suppress("UnnecessaryAbstractClass")
 abstract class SpringTransactionTestBase {
 
     @Autowired
     lateinit var ctx: ApplicationContext
+
+    @Autowired
+    lateinit var transactionManager: PlatformTransactionManager
 }

@@ -13,6 +13,30 @@ This project and the corresponding community is governed by
 the [JetBrains Open Source and Community Code of Conduct](https://confluence.jetbrains.com/display/ALL/JetBrains+Open+Source+and+Community+Code+of+Conduct).
 Independently of how you'd like to contribute, please make sure you read and comply with it.
 
+## Setup
+
+### Testing on Apple Silicon 
+To run Oracle XE tests, you need to install [Colima](https://github.com/abiosoft/colima) container runtime. It will work in pair with your docker installation.
+```shell
+brew install colima
+```
+
+After installing, you need to start the colima daemon in arch x86_64 mode:
+```shel
+colima start --arch x86_64 --memory 4 --network-address
+```
+
+The test task can automatically use colima context when needed, and it's better to use default context for other tasks.
+To switch the context to default, run:
+```shell
+docker context use default
+```
+
+Make sure that default is used as default docker context:
+```shell
+docker context list
+```
+
 ### Code
 
 #### Pull Requests
@@ -30,6 +54,8 @@ Contributions are made using Github [pull requests](https://help.github.com/en/a
 7. If the contribution requires updates to documentation (be it updating existing contents or creating new one), please
    file a new ticket on [YouTrack](https://youtrack.jetbrains.com/issues/EXPOSED).
 8. Make sure any code contributed is covered by tests and no existing tests are broken. We use Docker containers to run tests.
+9. Finally, make sure to run the `apiCheck` Gradle task. If it's not successful, run the `apiDump` Gradle task. Further information can be
+   found [here](https://github.com/Kotlin/binary-compatibility-validator).
 
 #### Style Guides
 

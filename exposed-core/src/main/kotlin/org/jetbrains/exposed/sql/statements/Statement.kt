@@ -16,7 +16,7 @@ abstract class Statement<out T>(val type: StatementType, val targets: List<Table
 
     abstract fun PreparedStatementApi.executeInternal(transaction: Transaction): T?
 
-    abstract fun prepareSQL(transaction: Transaction): String
+    abstract fun prepareSQL(transaction: Transaction, prepared: Boolean = true): String
 
     abstract fun arguments(): Iterable<Iterable<Pair<IColumnType, Any?>>>
 
@@ -58,10 +58,11 @@ abstract class Statement<out T>(val type: StatementType, val targets: List<Table
         }
 
         transaction.currentStatement = statement
+        transaction.interceptors.forEach { it.afterStatementPrepared(transaction, statement) }
         val result = try {
             statement.executeInternal(transaction)
-        } catch (e: SQLException) {
-            throw ExposedSQLException(e, contexts, transaction)
+        } catch (cause: SQLException) {
+            throw ExposedSQLException(cause, contexts, transaction)
         }
         transaction.currentStatement = null
         transaction.executedStatements.add(statement)
@@ -125,5 +126,6 @@ enum class StatementGroup {
 enum class StatementType(val group: StatementGroup) {
     INSERT(StatementGroup.DML), UPDATE(StatementGroup.DML), DELETE(StatementGroup.DML), SELECT(StatementGroup.DML),
     CREATE(StatementGroup.DDL), ALTER(StatementGroup.DDL), TRUNCATE(StatementGroup.DDL), DROP(StatementGroup.DDL),
-    GRANT(StatementGroup.DDL), EXEC(StatementGroup.DML), OTHER(StatementGroup.DDL)
+    GRANT(StatementGroup.DDL), EXEC(StatementGroup.DML), OTHER(StatementGroup.DDL),
+    SHOW(StatementGroup.DML), PRAGMA(StatementGroup.DML)
 }

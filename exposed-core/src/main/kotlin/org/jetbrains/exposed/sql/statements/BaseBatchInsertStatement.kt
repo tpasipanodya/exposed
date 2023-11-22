@@ -18,7 +18,7 @@ abstract class BaseBatchInsertStatement(
 
     internal val data = ArrayList<MutableMap<Column<*>, Any?>>()
 
-    private fun Column<*>.isDefaultable() = columnType.nullable || defaultValueFun != null
+    private fun Column<*>.isDefaultable() = columnType.nullable || defaultValueFun != null || isDatabaseGenerated
 
     override operator fun <S> set(column: Column<S>, value: S) {
         if (data.size > 1 && column !in data[data.size - 2] && !column.isDefaultable()) {
@@ -88,7 +88,10 @@ abstract class BaseBatchInsertStatement(
     override fun valuesAndDefaults(values: Map<Column<*>, Any?>) = arguments!!.first().toMap()
 
     override fun prepared(transaction: Transaction, sql: String): PreparedStatementApi {
-        return if (!shouldReturnGeneratedValues) transaction.connection.prepareStatement(sql, false)
-        else super.prepared(transaction, sql)
+        return if (!shouldReturnGeneratedValues) {
+            transaction.connection.prepareStatement(sql, false)
+        } else {
+            super.prepared(transaction, sql)
+        }
     }
 }

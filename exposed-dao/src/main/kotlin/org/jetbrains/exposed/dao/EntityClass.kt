@@ -294,46 +294,136 @@ abstract class EntityClass<ID : Comparable<ID>, out T : Entity<ID>>(
     private inline fun <reified R : Any> registerRefRule(column: Column<*>, ref: () -> R): R =
         refDefinitions.getOrPut(column to R::class, ref) as R
 
+    /**
+     * Registers a reference as a field of the child entity class, which returns a parent object of this `EntityClass`.
+     *
+     * The reference should have been defined by the creation of a [column] using `reference()` on the child table.
+     *
+     * @sample org.jetbrains.exposed.sql.tests.shared.entities.EntityTests.Child
+     */
     infix fun <REF : Comparable<REF>> referencedOn(column: Column<REF>) = registerRefRule(column) { Reference(column, this) }
 
+    /**
+     * Registers an optional reference as a field of the child entity class, which returns a parent object of
+     * this `EntityClass`.
+     *
+     * The reference should have been defined by the creation of a [column] using either `optReference()` or
+     * `reference().nullable()` on the child table.
+     *
+     * @sample org.jetbrains.exposed.sql.tests.shared.entities.EntityTests.Post
+     */
     infix fun <REF : Comparable<REF>> optionalReferencedOn(column: Column<REF?>) = registerRefRule(column) { OptionalReference(column, this) }
 
+    /**
+     * Registers a reference as an immutable field of the parent entity class, which returns a child object of
+     * this `EntityClass`.
+     *
+     * The reference should have been defined by the creation of a [column] using `reference()` on the child table.
+     *
+     * @sample org.jetbrains.exposed.sql.tests.shared.entities.EntityTestsData.YEntity
+     */
     infix fun <TargetID : Comparable<TargetID>, Target : Entity<TargetID>, REF : Comparable<REF>> EntityClass<TargetID, Target>.backReferencedOn(
         column: Column<REF>
-    ):
-        ReadOnlyProperty<Entity<ID>, Target> = registerRefRule(column) { BackReference(column, this) }
+    ): ReadOnlyProperty<Entity<ID>, Target> = registerRefRule(column) { BackReference(column, this) }
 
+    /**
+     * Registers a reference as an immutable field of the parent entity class, which returns a child object of
+     * this `EntityClass`.
+     *
+     * The reference should have been defined by the creation of a [column] using `reference()` on the child table.
+     *
+     * @sample org.jetbrains.exposed.sql.tests.shared.entities.EntityTestsData.YEntity
+     */
     @JvmName("backReferencedOnOpt")
     infix fun <TargetID : Comparable<TargetID>, Target : Entity<TargetID>, REF : Comparable<REF>> EntityClass<TargetID, Target>.backReferencedOn(
         column: Column<REF?>
-    ):
-        ReadOnlyProperty<Entity<ID>, Target> = registerRefRule(column) { BackReference(column, this) }
+    ): ReadOnlyProperty<Entity<ID>, Target> = registerRefRule(column) { BackReference(column, this) }
 
+    /**
+     * Registers an optional reference as an immutable field of the parent entity class, which returns a child object of
+     * this `EntityClass`.
+     *
+     * The reference should have been defined by the creation of a [column] using either `optReference()` or
+     * `reference().nullable()` on the child table.
+     *
+     * @sample org.jetbrains.exposed.sql.tests.shared.entities.EntityTests.Student
+     */
     infix fun <TargetID : Comparable<TargetID>, Target : Entity<TargetID>, REF : Comparable<REF>> EntityClass<TargetID, Target>.optionalBackReferencedOn(
         column: Column<REF>
     ) =
         registerRefRule(column) { OptionalBackReference<TargetID, Target, ID, Entity<ID>, REF>(column as Column<REF?>, this) }
 
+    /**
+     * Registers an optional reference as an immutable field of the parent entity class, which returns a child object of
+     * this `EntityClass`.
+     *
+     * The reference should have been defined by the creation of a [column] using either `optReference()` or
+     * `reference().nullable()` on the child table.
+     *
+     * @sample org.jetbrains.exposed.sql.tests.shared.entities.EntityTests.Student
+     */
     @JvmName("optionalBackReferencedOnOpt")
     infix fun <TargetID : Comparable<TargetID>, Target : Entity<TargetID>, REF : Comparable<REF>> EntityClass<TargetID, Target>.optionalBackReferencedOn(
         column: Column<REF?>
     ) =
         registerRefRule(column) { OptionalBackReference<TargetID, Target, ID, Entity<ID>, REF>(column, this) }
 
+    /**
+     * Registers a reference as an immutable field of the parent entity class, which returns a collection of
+     * child objects of this `EntityClass` that all reference the parent.
+     *
+     * The reference should have been defined by the creation of a [column] using `reference()` on the child table.
+     *
+     * By default, this also stores the loaded entities to a cache.
+     *
+     * @sample org.jetbrains.exposed.sql.tests.shared.entities.EntityHookTestData.Country
+     */
     infix fun <TargetID : Comparable<TargetID>, Target : Entity<TargetID>, REF : Comparable<REF>> EntityClass<TargetID, Target>.referrersOn(column: Column<REF>) =
         registerRefRule(column) { Referrers<ID, Entity<ID>, TargetID, Target, REF>(column, this, true) }
 
+    /**
+     * Registers a reference as an immutable field of the parent entity class, which returns a collection of
+     * child objects of this `EntityClass` that all reference the parent.
+     *
+     * The reference should have been defined by the creation of a [column] using `reference()` on the child table.
+     *
+     * Set [cache] to `true` to also store the loaded entities to a cache.
+     *
+     * @sample org.jetbrains.exposed.sql.tests.shared.entities.EntityTests.School
+     */
     fun <TargetID : Comparable<TargetID>, Target : Entity<TargetID>, REF : Comparable<REF>> EntityClass<TargetID, Target>.referrersOn(
         column: Column<REF>,
         cache: Boolean
     ) =
         registerRefRule(column) { Referrers<ID, Entity<ID>, TargetID, Target, REF>(column, this, cache) }
 
+    /**
+     * Registers an optional reference as an immutable field of the parent entity class, which returns a collection of
+     * child objects of this `EntityClass` that all reference the parent.
+     *
+     * The reference should have been defined by the creation of a [column] using either `optReference()` or
+     * reference().nullable()` on the child table.
+     *
+     * By default, this also stores the loaded entities to a cache.
+     *
+     * @sample org.jetbrains.exposed.sql.tests.shared.entities.EntityTests.Category
+     */
     infix fun <TargetID : Comparable<TargetID>, Target : Entity<TargetID>, REF : Comparable<REF>> EntityClass<TargetID, Target>.optionalReferrersOn(
         column: Column<REF?>
     ) =
         registerRefRule(column) { OptionalReferrers<ID, Entity<ID>, TargetID, Target, REF>(column, this, true) }
 
+    /**
+     * Registers an optional reference as an immutable field of the parent entity class, which returns a collection of
+     * child objects of this `EntityClass` that all reference the parent.
+     *
+     * The reference should have been defined by the creation of a [column] using either `optReference()` or
+     * `reference().nullable()` on the child table.
+     *
+     * Set [cache] to `true` to also store the loaded entities to a cache.
+     *
+     * @sample org.jetbrains.exposed.sql.tests.shared.entities.EntityTests.Student
+     */
     fun <TargetID : Comparable<TargetID>, Target : Entity<TargetID>, REF : Comparable<REF>> EntityClass<TargetID, Target>.optionalReferrersOn(
         column: Column<REF?>,
         cache: Boolean = false
@@ -356,7 +446,6 @@ abstract class EntityClass<ID : Comparable<ID>, out T : Entity<ID>>(
 
     private fun Query.setForUpdateStatus(): Query = if (this@EntityClass is ImmutableEntityClass<*, *>) this.notForUpdate() else this
 
-    @Suppress("CAST_NEVER_SUCCEEDS")
     fun <SID> warmUpOptReferences(references: List<SID>, refColumn: Column<SID?>, forUpdate: Boolean? = null): List<T> =
         warmUpReferences(references, refColumn as Column<SID>, forUpdate)
 
@@ -419,10 +508,15 @@ abstract class EntityClass<ID : Comparable<ID>, out T : Entity<ID>>(
         else -> findQuery
     }.toList()
 
-    internal fun <SID: Comparable<SID>> warmUpLinkedReferences(
-        references: List<EntityID<SID>>, sourceRefColumn: Column<EntityID<SID>>, targetRefColumn: Column<EntityID<ID>>, linkTable: Table,
-        forUpdate: Boolean? = null, optimizedLoad: Boolean = false
-    ) : List<T> {
+    @Suppress("ComplexMethod")
+    internal fun <SID : Comparable<SID>> warmUpLinkedReferences(
+        references: List<EntityID<SID>>,
+        sourceRefColumn: Column<EntityID<SID>>,
+        targetRefColumn: Column<EntityID<ID>>,
+        linkTable: Table,
+        forUpdate: Boolean? = null,
+        optimizedLoad: Boolean = false
+    ): List<T> {
         if (references.isEmpty()) return emptyList()
         val distinctRefIds = references.distinct()
         val transaction = TransactionManager.current()
@@ -475,7 +569,12 @@ abstract class EntityClass<ID : Comparable<ID>, out T : Entity<ID>>(
      * Can be useful when references target the same entities. That will prevent from loading them multiple times (per each reference row) and will require
      * less memory/bandwidth for "heavy" entities (with a lot of columns or columns with huge data in it)
      */
-    fun <SID: Comparable<SID>> warmUpLinkedReferences(references: List<EntityID<SID>>, linkTable: Table, forUpdate: Boolean? = null, optimizedLoad: Boolean = false): List<T> {
+    fun <SID : Comparable<SID>> warmUpLinkedReferences(
+        references: List<EntityID<SID>>,
+        linkTable: Table,
+        forUpdate: Boolean? = null,
+        optimizedLoad: Boolean = false
+    ): List<T> {
         if (references.isEmpty()) return emptyList()
 
         val sourceRefColumn = linkTable.columns.singleOrNull { it.referee == references.first().table.id } as? Column<EntityID<SID>>
@@ -488,8 +587,6 @@ abstract class EntityClass<ID : Comparable<ID>, out T : Entity<ID>>(
 
     fun <ID : Comparable<ID>, T : Entity<ID>> isAssignableTo(entityClass: EntityClass<ID, T>) = entityClass.klass.isAssignableFrom(klass)
 }
-
-
 
 abstract class ImmutableEntityClass<ID : Comparable<ID>, out T : Entity<ID>>(
     table: IdTable<ID>,
@@ -528,19 +625,21 @@ abstract class ImmutableCachedEntityClass<ID : Comparable<ID>, out T : Entity<ID
         val tr = TransactionManager.current()
         val db = tr.db
         val transactionCache = super.warmCache()
-        if (_cachedValues[db] == null) synchronized(this) {
-            val cachedValues = _cachedValues[db]
-            when {
-                cachedValues != null -> {
-                } // already loaded in another transaction
-                tr.getUserData(cacheLoadingState) != null -> {
-                    return transactionCache // prevent recursive call to warmCache() in .all()
-                }
-                else -> {
-                    tr.putUserData(cacheLoadingState, this)
-                    super.all().toList() /* force iteration to initialize lazy collection */
-                    _cachedValues[db] = transactionCache.data[table] ?: mutableMapOf()
-                    tr.removeUserData(cacheLoadingState)
+        if (_cachedValues[db] == null) {
+            synchronized(this) {
+                val cachedValues = _cachedValues[db]
+                when {
+                    cachedValues != null -> {
+                    } // already loaded in another transaction
+                    tr.getUserData(cacheLoadingState) != null -> {
+                        return transactionCache // prevent recursive call to warmCache() in .all()
+                    }
+                    else -> {
+                        tr.putUserData(cacheLoadingState, this)
+                        super.all().toList() // force iteration to initialize lazy collection
+                        _cachedValues[db] = transactionCache.data[table] ?: mutableMapOf()
+                        tr.removeUserData(cacheLoadingState)
+                    }
                 }
             }
         }

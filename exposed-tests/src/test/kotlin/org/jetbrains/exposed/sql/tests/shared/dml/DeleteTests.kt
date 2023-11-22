@@ -6,7 +6,6 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
 import org.jetbrains.exposed.sql.tests.TestDB
 import org.jetbrains.exposed.sql.tests.currentDialectTest
-import org.jetbrains.exposed.sql.tests.shared.assertEqualLists
 import org.jetbrains.exposed.sql.tests.shared.expectException
 import org.jetbrains.exposed.sql.vendors.H2Dialect
 import org.jetbrains.exposed.sql.vendors.SQLiteDialect
@@ -17,7 +16,13 @@ import org.junit.Test
 
 class DeleteTests : DatabaseTestsBase() {
     private val notSupportLimit by lazy {
-        val exclude = arrayListOf(TestDB.POSTGRESQL, TestDB.POSTGRESQLNG, TestDB.ORACLE, TestDB.H2_PSQL, TestDB.H2_ORACLE)
+        val exclude = arrayListOf(
+            TestDB.POSTGRESQL,
+            TestDB.POSTGRESQLNG,
+            TestDB.ORACLE,
+            TestDB.H2_PSQL,
+            TestDB.H2_ORACLE
+        )
         if (!SQLiteDialect.ENABLE_UPDATE_DELETE_LIMIT) {
             exclude.add(TestDB.SQLITE)
         }
@@ -58,9 +63,9 @@ class DeleteTests : DatabaseTestsBase() {
                     assertEquals("sergey", sergeyId)
 
                     scopedUsers.deleteWhere { scopedUsers.name eq "Alex" }
-                    val alexExists = exists(scopedUsers.stripDefaultFilter().select { scopedUsers.name eq "Alex" })
-                    assertEqualLists(scopedUsers.slice(alexExists).selectAll().take(1).map { it[alexExists] },
-                                 listOf(true))
+                    scopedUsers.stripDefaultFilter()
+                        .select { scopedUsers.name eq "Alex" }
+                        .any().let { assertTrue(it) }
 
                     scopedUsers.deleteWhere { scopedUsers.name like "%er%" }
                     scopedUsers.slice(scopedUsers.id)
@@ -70,8 +75,10 @@ class DeleteTests : DatabaseTestsBase() {
                     assertEquals(4, scopedUsers.stripDefaultFilter().selectAll().count())
 
                     scopedUsers.stripDefaultFilter().deleteWhere { scopedUsers.name eq "Alex" }
-                    assertEqualLists(scopedUsers.slice(alexExists).selectAll().take(1).map { it[alexExists] },
-                                 listOf(false))
+                    scopedUsers.stripDefaultFilter()
+                        .select { scopedUsers.name eq "Alex" }
+                        .any().let { assertFalse(it) }
+
                     assertEquals(3, scopedUsers.stripDefaultFilter().selectAll().count())
                 }
         }
@@ -120,7 +127,7 @@ class DeleteTests : DatabaseTestsBase() {
 
     @Test
     fun testDeleteWithLimit02() {
-        val dialects = TestDB.values().toList() - notSupportLimit
+        val dialects = TestDB.entries - notSupportLimit
         withCitiesAndUsers(dialects) {
             expectException<UnsupportedByDialectException> {
                 userData.deleteWhere(limit = 1) {

@@ -47,12 +47,14 @@ class NestedTransactionsTest : DatabaseTestsBase() {
     }
 
     @Test
+    @Suppress("UseCheckOrError")
     fun `test outer transaction restored after nested transaction failed`() {
         withTables(Cities) {
             assertNotNull(TransactionManager.currentOrNull())
 
             try {
-                inTopLevelTransaction(this.transactionIsolation, 1) {
+                inTopLevelTransaction(this.transactionIsolation) {
+                    repetitionAttempts = 1
                     throw IllegalStateException("Should be rethrow")
                 }
             } catch (e: Exception) {

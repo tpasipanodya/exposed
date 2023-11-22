@@ -1,3 +1,7 @@
+# 0.9.2
+
+* Functionally identical to 0.9.1. Cut a new release version inorder to fix some package versioning issues.
+
 # 0.9.1
 
 * `jvm` version `1.9.0`
