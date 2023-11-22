@@ -112,8 +112,6 @@ abstract class DatabaseTestsBase {
         Assume.assumeFalse(dialect in excludeSettings)
 
         withDb(dialect) {
-            addLogger(StdOutSqlLogger)
-
             try { SchemaUtils.drop(*tables) }
             catch (e: Throwable) {}
 
