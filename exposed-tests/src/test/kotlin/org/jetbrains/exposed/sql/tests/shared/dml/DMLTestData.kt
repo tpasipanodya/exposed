@@ -8,11 +8,11 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
 import org.jetbrains.exposed.sql.tests.TestDB
-import org.jetbrains.exposed.sql.tests.currentDialectTest
+import java.math.BigDecimal
+import java.util.*
 import org.jetbrains.exposed.sql.tests.shared.assertEquals
 import org.jetbrains.exposed.sql.tests.shared.assertFalse
 import org.jetbrains.exposed.sql.tests.shared.assertTrue
-import java.util.*
 
 
 object Cities : Table() {
@@ -27,16 +27,16 @@ object Users : Table() {
     val cityId: Column<Int?> = reference("city_id", Cities.id).nullable()
     val flags: Column<Int> = integer("flags").default(0)
     override val primaryKey = PrimaryKey(id)
-}
 
-object UserFlags {
-    const val IS_ADMIN = 0b1
-    const val HAS_DATA = 0b1000
+    object Flags {
+        const val IS_ADMIN = 0b1
+        const val HAS_DATA = 0b1000
+    }
 }
 
 fun munichId() = Cities
     .select { Cities.name eq "Munich" }
-    .first()[Cities.id]
+    .first() get Cities.id
 
 object ScopedUsers : Table("scoped_users") {
     val id: Column<String> = varchar("id", 10)
@@ -45,6 +45,11 @@ object ScopedUsers : Table("scoped_users") {
     val flags: Column<Int> = integer("flags").default(0)
     override val primaryKey = PrimaryKey(id)
     override val defaultFilter = { cityId eq munichId() }
+
+    object Flags {
+        const val IS_ADMIN = 0b1
+        const val HAS_DATA = 0b1000
+    }
 }
 
 object UserData : Table() {
@@ -60,6 +65,12 @@ object ScopedUserData : Table(name = "scoped_user_data") {
     override val defaultFilter = { userId eq "sergey" }
 }
 
+object Sales : Table() {
+    val year: Column<Int> = integer("year")
+    val month: Column<Int> = integer("month")
+    val product: Column<String?> = varchar("product", 30).nullable()
+    val amount: Column<BigDecimal> = decimal("amount", 8, 2)
+}
 
 class DmlTestRuntime(val transaction: Transaction,
                      val cities: Cities,
@@ -94,42 +105,42 @@ fun DatabaseTestsBase.withCitiesAndUsers(exclude: List<TestDB> = emptyList(),
             it[id] = "andrey"
             it[name] = "Andrey"
             it[cityId] = saintPetersburgId
-            it[flags] = UserFlags.IS_ADMIN
+            it[flags] = Users.Flags.IS_ADMIN
         }
 
         ScopedUsers.insert {
             it[id] = "andrey"
             it[name] = "Andrey"
             it[cityId] = saintPetersburgId
-            it[flags] = UserFlags.IS_ADMIN
+            it[flags] = ScopedUsers.Flags.IS_ADMIN
         }
 
         Users.insert {
             it[id] = "sergey"
             it[name] = "Sergey"
             it[cityId] = munichId
-            it[flags] = UserFlags.IS_ADMIN or UserFlags.HAS_DATA
+            it[flags] = Users.Flags.IS_ADMIN or Users.Flags.HAS_DATA
         }
 
         ScopedUsers.insert {
             it[id] = "sergey"
             it[name] = "Sergey"
             it[cityId] = munichId
-            it[flags] = UserFlags.IS_ADMIN or UserFlags.HAS_DATA
+            it[flags] = ScopedUsers.Flags.IS_ADMIN or ScopedUsers.Flags.HAS_DATA
         }
 
         Users.insert {
             it[id] = "eugene"
             it[name] = "Eugene"
             it[cityId] = munichId
-            it[flags] = UserFlags.HAS_DATA
+            it[flags] = Users.Flags.HAS_DATA
         }
 
         ScopedUsers.insert {
             it[id] = "eugene"
             it[name] = "Eugene"
             it[cityId] = munichId
-            it[flags] = UserFlags.HAS_DATA
+            it[flags] = ScopedUsers.Flags.HAS_DATA
         }
 
         Users.insert {
@@ -148,14 +159,14 @@ fun DatabaseTestsBase.withCitiesAndUsers(exclude: List<TestDB> = emptyList(),
             it[id] = "smth"
             it[name] = "Something"
             it[cityId] = null
-            it[flags] = UserFlags.HAS_DATA
+            it[flags] = Users.Flags.HAS_DATA
         }
 
         ScopedUsers.insert {
             it[id] = "smth"
             it[name] = "Something"
             it[cityId] = null
-            it[flags] = UserFlags.HAS_DATA
+            it[flags] = ScopedUsers.Flags.HAS_DATA
         }
 
         UserData.insert {
@@ -206,13 +217,39 @@ fun DatabaseTestsBase.withCitiesAndUsers(exclude: List<TestDB> = emptyList(),
             it[value] = 30
         }
 
-       DmlTestRuntime(this,
-                      Cities,
-                      Users,
-                      UserData,
-                      ScopedUsers,
-                      ScopedUserData)
-           .apply(statement)
+        DmlTestRuntime(
+            this,
+            Cities,
+            Users,
+            UserData,
+            ScopedUsers,
+            ScopedUserData
+        ).apply(statement)
+    }
+}
+
+fun DatabaseTestsBase.withSales(
+    statement: Transaction.(testDb: TestDB, sales: Sales) -> Unit
+) {
+    withTables(Sales) {
+        insertSale(2018, 11, "tea", "550.10")
+        insertSale(2018, 12, "coffee", "1500.25")
+        insertSale(2018, 12, "tea", "900.30")
+        insertSale(2019, 1, "coffee", "1620.10")
+        insertSale(2019, 1, "tea", "650.70")
+        insertSale(2019, 2, "coffee", "1870.90")
+        insertSale(2019, 2, null, "10.20")
+
+        statement(it, Sales)
+    }
+}
+
+private fun insertSale(year: Int, month: Int, product: String?, amount: String) {
+    Sales.insert {
+        it[Sales.year] = year
+        it[Sales.month] = month
+        it[Sales.product] = product
+        it[Sales.amount] = BigDecimal(amount)
     }
 }
 

@@ -3,6 +3,8 @@ package org.jetbrains.exposed.sql
 import org.jetbrains.exposed.exceptions.throwUnsupportedException
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.vendors.H2Dialect
+import org.jetbrains.exposed.sql.vendors.MysqlDialect
+import org.jetbrains.exposed.sql.vendors.SQLServerDialect
 import org.jetbrains.exposed.sql.vendors.SQLiteDialect
 import org.jetbrains.exposed.sql.vendors.currentDialect
 import org.jetbrains.exposed.sql.vendors.inProperCase
@@ -35,13 +37,26 @@ class Column<T>(
     var defaultValueFun: (() -> T)? = null
     internal var dbDefaultValue: Expression<T>? = null
 
+    fun defaultValueInDb() = dbDefaultValue
+
+    internal var isDatabaseGenerated: Boolean = false
+
     /** Appends the SQL representation of this column to the specified [queryBuilder]. */
     override fun toQueryBuilder(queryBuilder: QueryBuilder): Unit = TransactionManager.current().fullIdentity(this@Column, queryBuilder)
 
     /** Returns the list of DDL statements that create this column. */
     val ddl: List<String> get() = createStatement()
 
+    /** Returns the column name in proper case. */
     fun nameInDatabaseCase(): String = name.inProperCase()
+
+    /**
+     * Returns the column name with wrapping double-quotation characters removed.
+     *
+     * **Note** If used with MySQL or MariaDB, the column name is returned unchanged, since these databases use a
+     * backtick character as the identifier quotation.
+     */
+    fun nameUnquoted(): String = if (currentDialect is MysqlDialect) name else name.trim('\"')
 
     private val isLastColumnInPK: Boolean
         get() = this == table.primaryKey?.columns?.last()
@@ -79,6 +94,7 @@ class Column<T>(
     internal fun isOneColumnPK(): Boolean = this == table.primaryKey?.columns?.singleOrNull()
 
     /** Returns the SQL representation of this column. */
+    @Suppress("ComplexMethod")
     fun descriptionDdl(modify: Boolean = false): String = buildString {
         val tr = TransactionManager.current()
         val column = this@Column
@@ -109,7 +125,15 @@ class Column<T>(
                 }
                 exposedLogger.error("${currentDialect.name} ${tr.db.version} doesn't support expression '$expressionSQL' as default value.$clientDefault")
             } else {
-                append(" DEFAULT $expressionSQL")
+                if (currentDialect is SQLServerDialect) {
+                    // Create a DEFAULT constraint with an explicit name to facilitate removing it later if needed
+                    val tableName = column.table.tableNameWithoutScheme
+                    val columnName = column.name
+                    val constraintName = "DF_${tableName}_$columnName"
+                    append(" CONSTRAINT $constraintName DEFAULT $expressionSQL")
+                } else {
+                    append(" DEFAULT $expressionSQL")
+                }
             }
         }
 

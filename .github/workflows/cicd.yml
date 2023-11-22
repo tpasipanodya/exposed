@@ -4,7 +4,7 @@ on:
     tags:
       - '*'
 jobs:
-  Build-Release:
+  CI-CD:
     runs-on: ubuntu-latest
     permissions:
       packages: write
@@ -16,14 +16,15 @@ jobs:
         with:
           distribution: zulu
           java-version: 19
-      - name: Start Databases
-        run: ./scripts/setup.sh
+      - name: Prepare Docker
+        run: docker context use default
       - name: Release
         uses: gradle/gradle-build-action@v2
         env:
           PACKAGE_STORE_USERNAME: ${{ secrets.PACKAGE_STORE_USERNAME }}
           PACKAGE_STORE_TOKEN: ${{ secrets.PACKAGE_STORE_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IS_RELEASE_BUILD: true
         with:
           gradle-version: 8.2.1
           arguments: clean test build publish --info --stacktrace -PIS_RELEASE_BUILD=true
