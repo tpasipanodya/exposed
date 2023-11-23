@@ -12,7 +12,7 @@ repositories {
 }
 
 kotlin {
-    jvmToolchain(19)
+    jvmToolchain(20)
 }
 
 dependencies {
@@ -31,7 +31,7 @@ dependencies {
 
 tasks.withType<KotlinCompile>().configureEach {
     kotlinOptions {
-        jvmTarget = "19"
+        jvmTarget = "20"
     }
 }
 

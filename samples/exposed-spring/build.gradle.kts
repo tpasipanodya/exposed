@@ -13,11 +13,11 @@ group = "org.jetbrains.exposed"
 version = "1.0.0"
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_20
 }
 
 kotlin {
-    jvmToolchain(19)
+    jvmToolchain(20)
 }
 
 repositories {

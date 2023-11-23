@@ -11,13 +11,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: zulu
-          java-version: 19
+          java-version: 20
+
       - name: Prepare Docker
         run: docker context use default
+
       - name: Release
         uses: gradle/gradle-build-action@v2
         env:
@@ -26,8 +29,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           IS_RELEASE_BUILD: true
         with:
-          gradle-version: 8.2.1
+          gradle-version: 8.4
           arguments: clean test build publish --info --stacktrace -PIS_RELEASE_BUILD=true
+
       - name: Upload Test Artifacts
         uses: actions/upload-artifact@v3
         if: success() || failure()
