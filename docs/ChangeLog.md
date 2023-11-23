@@ -1,3 +1,7 @@
+# 0.10.1
+
+* Pegged against [`org.jetbrains.exposed` version `0.44.1`](https://github.com/JetBrains/Exposed/releases/tag/0.44.1)
+
 # 0.9.2
 
 * Functionally identical to 0.9.1. Cut a new release version inorder to fix some package versioning issues.
