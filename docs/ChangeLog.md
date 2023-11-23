@@ -1,6 +1,8 @@
 # 0.10.1
 
 * Pegged against [`org.jetbrains.exposed` version `0.44.1`](https://github.com/JetBrains/Exposed/releases/tag/0.44.1)
+* `jdk` version `20`
+* `jvm` version `1.9.20`
 
 # 0.9.2
 
