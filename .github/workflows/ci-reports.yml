@@ -14,45 +14,90 @@ jobs:
       contents: read
       checks: write
     steps:
+      - name: Upload H2 Test Results
+        uses: dorny/test-reporter@v1
+        with:
+          artifact: Test Artifacts
+          name: H2 Test Results
+          path: testH2/*.xml
+          reporter: java-junit
+
+      - name: Upload H2 v1 Test Results
+        uses: dorny/test-reporter@v1
+        with:
+          artifact: Test Artifacts
+          name: H2 v1 Test Results
+          path: testH2_v1/*.xml
+          reporter: java-junit
+
+      - name: Upload Maria DB V2 Test Results
+        uses: dorny/test-reporter@v1
+        with:
+          artifact: Test Artifacts
+          name: Maria DB V2 Test Results
+          path: testMariadb_v2/*.xml
+          reporter: java-junit
+
+      - name: Upload Maria DB v3 Results
+        uses: dorny/test-reporter@v1
+        with:
+          artifact: Test Artifacts
+          name: Mariah DB v3 Results
+          path: testMariadb_v3/*.xml
+          reporter: java-junit
+
+      - name: Upload MySQL Test Results
+        uses: dorny/test-reporter@v1
+        with:
+          artifact: Test Artifacts
+          name: MySQL Test Results
+          path: testMysql/*.xml
+          reporter: java-junit
+
+      - name: Upload MySQL v8 Test Results
+        uses: dorny/test-reporter@v1
+        with:
+          artifact: Test Artifacts
+          name: MySQL v8 Test Results
+          path: testMysql8/*.xml
+          reporter: java-junit
+
+      - name: Upload Oracle Test Results
+        uses: dorny/test-reporter@v1
+        with:
+          artifact: Test Artifacts
+          name: Oracle Test Results
+          path: testOracle/*.xml
+          reporter: java-junit
+
       - name: Upload Postgres Test Results
         uses: dorny/test-reporter@v1
         with:
           artifact: Test Artifacts
           name: Postgres Test Results
-          path: postgresTest/*.xml
+          path: testPostgres/*.xml
           reporter: java-junit
-      - name: Upload Mysql Test Results
+
+      - name: Upload Postgres NG Test Results
         uses: dorny/test-reporter@v1
         with:
           artifact: Test Artifacts
-          name: MySQL Test Results
-          path: mysql51Test/*.xml
+          name: Postgres NG Test Results
+          path: testPostgresNG/*.xml
           reporter: java-junit
-      - name: Upload SQL lite Test Results
+
+      - name: Upload SQLite Test Results
         uses: dorny/test-reporter@v1
         with:
           artifact: Test Artifacts
-          name: SQL lite Test Results
-          path: sqliteTest/*.xml
+          name: SQLite Test Results
+          path: testSqlite/*.xml
           reporter: java-junit
-      - name: Upload Postgres NG Results
+
+      - name: Upload SQL Server Test Results
         uses: dorny/test-reporter@v1
         with:
           artifact: Test Artifacts
-          name: Postgres NG Results
-          path: postgresNGTest/*.xml
-          reporter: java-junit
-      - name: Upload H2 V2 Test Results
-        uses: dorny/test-reporter@v1
-        with:
-          artifact: Test Artifacts
-          name: H2 V2 Test Results
-          path: h2_v2Test/*.xml
-          reporter: java-junit
-      - name: Upload H2 V1 Test Results
-        uses: dorny/test-reporter@v1
-        with:
-          artifact: Test Artifacts
-          name: H2 V1 Test Results
-          path: h2_v1Test/*.xml
+          name: SQL Server Test Results
+          path: testSqlserver/*.xml
           reporter: java-junit

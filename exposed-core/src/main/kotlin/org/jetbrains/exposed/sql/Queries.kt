@@ -316,9 +316,24 @@ fun <T : Table> T.upsert(
     onUpdate: List<Pair<Column<*>, Expression<*>>>? = null,
     where: (SqlExpressionBuilder.() -> Op<Boolean>)? = null,
     body: T.(UpsertStatement<Long>) -> Unit
-) = UpsertStatement<Long>(this, *keys, onUpdate = onUpdate, where = where?.let { SqlExpressionBuilder.it() }).apply {
-    body(this)
-    execute(TransactionManager.current())
+) : UpsertStatement<Long> {
+    val defaultFilter = materializeDefaultFilter()
+    val whereClause = if (where == null && defaultFilter != null) {
+        defaultFilter
+    } else if (where != null && defaultFilter == null) {
+        SqlExpressionBuilder.where()
+    } else if (where != null && defaultFilter != null)   {
+        SqlExpressionBuilder.where() and defaultFilter
+    } else { null }
+
+    return UpsertStatement<Long>(
+        this, *keys,
+        onUpdate = onUpdate,
+        where = whereClause
+    ).apply {
+        body(this)
+        execute(TransactionManager.current())
+    }
 }
 
 /**

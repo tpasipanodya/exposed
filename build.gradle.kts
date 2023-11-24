@@ -56,7 +56,7 @@ allprojects {
 subprojects {
     tasks.withType<KotlinJvmCompile>().configureEach {
         kotlinOptions {
-            jvmTarget = "19"
+            jvmTarget = "20"
             apiVersion = "1.9"
             languageVersion = "1.9"
         }

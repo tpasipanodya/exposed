@@ -8,6 +8,7 @@ import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.ResultSet
 import java.sql.Statement
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.isNotNull
 
 internal object SQLiteDataTypeProvider : DataTypeProvider() {
     override fun integerAutoincType(): String = "INTEGER PRIMARY KEY AUTOINCREMENT"
@@ -223,15 +224,7 @@ internal object SQLiteFunctionProvider : FunctionProvider() {
         val updateColumns = data.unzip().first.filter { it !in keyColumns }
         appendUpdateToUpsertClause(table, updateColumns, onUpdate, transaction, isAliasNeeded = false)
 
-        where?.let { originalClause ->
-            table.materializeDefaultFilter()?.let { defaultFilter ->
-                originalClause and defaultFilter
-
-            } ?: originalClause
-        }?.let {
-            +" WHERE "
-            +it
-        }
+        where?.let { +" WHERE $where" }
         toString()
     }
 
