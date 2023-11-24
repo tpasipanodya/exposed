@@ -13,6 +13,7 @@ import org.jetbrains.exposed.sql.tests.shared.assertEquals
 import org.jetbrains.exposed.sql.tests.shared.expectException
 import org.junit.Test
 import java.util.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import kotlin.properties.Delegates
 
 // Upsert implementation does not support H2 version 1
@@ -21,10 +22,12 @@ class UpsertTests : DatabaseTestsBase() {
     // these DB require key columns from ON clause to be included in the derived source table (USING clause)
     private val upsertViaMergeDB = listOf(TestDB.SQLSERVER, TestDB.ORACLE) + TestDB.allH2TestDB - TestDB.H2_MYSQL
 
+    private val conditionalUpsertDBs = listOf(TestDB.POSTGRESQL, TestDB.SQLITE)
     @Test
     fun testUpsertWithPKConflict() {
-        withTables(AutoIncTable) { testDb ->
+        withTables(AutoIncTable, ScopedAutoIncTable) { testDb ->
             excludingH2Version1(testDb) {
+                // With no default filter.
                 val id1 = AutoIncTable.insert {
                     it[name] = "A"
                 } get AutoIncTable.id
@@ -41,6 +44,51 @@ class UpsertTests : DatabaseTestsBase() {
                 assertEquals(2, AutoIncTable.selectAll().count())
                 val updatedResult = AutoIncTable.select { AutoIncTable.id eq id1 }.single()
                 assertEquals("C", updatedResult[AutoIncTable.name])
+
+                addLogger(StdOutSqlLogger)
+                if (testDb in conditionalUpsertDBs) {
+                    // With a default filter
+                    val scopedId1 = ScopedAutoIncTable.insert {
+                        it[tenantId] = 1
+                        it[name] = "A"
+                    } get ScopedAutoIncTable.id
+
+
+                    ScopedAutoIncTable.upsert {
+                        if (testDb in upsertViaMergeDB) it[id] = 2
+                        it[tenantId] = 2
+                        it[name] = "B"
+                    }
+
+                    ScopedAutoIncTable.upsert {
+                        it[id] = scopedId1
+                        it[tenantId] = 1
+                        it[name] = "C"
+                    }
+
+                    assertEquals(2, ScopedAutoIncTable.stripDefaultFilter().selectAll().count())
+                    val scopedUpdatedResult = ScopedAutoIncTable.select { ScopedAutoIncTable.id eq scopedId1 }.single()
+                    assertEquals("C", scopedUpdatedResult[ScopedAutoIncTable.name])
+
+                    val scopedId2 = ScopedAutoIncTable
+                        .stripDefaultFilter()
+                        .select { ScopedAutoIncTable.id neq scopedId1 }
+                        .single() get ScopedAutoIncTable.id
+
+                    ScopedAutoIncTable.upsert {
+                        it[id] = scopedId2
+                        it[tenantId] = 2
+                        it[name] = "D"
+                    }
+
+                    assertEquals(2, ScopedAutoIncTable.stripDefaultFilter().selectAll().count())
+                    val scopedUpdatedResult2 =
+                        ScopedAutoIncTable
+                            .stripDefaultFilter()
+                            .select { ScopedAutoIncTable.id eq scopedId2 }
+                            .single() get ScopedAutoIncTable.name
+                    assertEquals("B", scopedUpdatedResult2)
+                }
             }
         }
     }
@@ -308,7 +356,16 @@ class UpsertTests : DatabaseTestsBase() {
             val age = integer("age")
         }
 
-        withTables(excludeSettings = TestDB.mySqlRelatedDB + upsertViaMergeDB, tester) {
+        val scopedTester = object : IntIdTable("scoped_tester") {
+            val tenantId = integer("tid")
+            val name = varchar("name", 64).uniqueIndex()
+            val address = varchar("address", 256)
+            val age = integer("age")
+            override val defaultFilter = { tenantId eq 1 }
+        }
+
+        withTables(excludeSettings = TestDB.mySqlRelatedDB + upsertViaMergeDB, tester, scopedTester) {
+            // With no default filter set
             val id1 = tester.insertAndGetId {
                 it[name] = "A"
                 it[address] = "Place A"
@@ -338,6 +395,76 @@ class UpsertTests : DatabaseTestsBase() {
             assertEquals(unchanged[tester.address], unchangedResult[tester.address])
             val updatedResult = tester.select { tester.id eq id1 }.single()
             assertEquals(updatedAge, updatedResult[tester.age])
+
+            // With a default filter set
+            if (currentTestDB in conditionalUpsertDBs) {
+                val scopedId1 = scopedTester.insertAndGetId {
+                    it[tenantId] = 1
+                    it[name] = "A"
+                    it[address] = "Place A"
+                    it[age] = 10
+                }
+                val scopedUnchanged = scopedTester.insert {
+                    it[tenantId] = 2
+                    it[name] = "B"
+                    it[address] = "Place B"
+                    it[age] = 50
+                }
+                val scopedUnchanged2 = scopedTester.insert {
+                    it[tenantId] = 3
+                    it[name] = "C"
+                    it[address] = "Place C"
+                    it[age] = 12
+                }
+
+                val scopedAgeTooLow = scopedTester.age less intLiteral(15)
+
+                // Only updates A
+                val scopedUpdatedAge = scopedTester.upsert(scopedTester.name, where = { scopedAgeTooLow }) {
+                    it[tenantId] = 1
+                    it[name] = "A"
+                    it[address] = "Address A"
+                    it[age] = 20
+                } get scopedTester.age
+
+                scopedTester.upsert(scopedTester.name, where = { scopedAgeTooLow }) {
+                    it[tenantId] = 2
+                    it[name] = "B"
+                    it[address] = "Address B"
+                    it[age] = 20
+                }
+
+                assertEquals(3, scopedTester.stripDefaultFilter().selectAll().count())
+
+                val scopedUpdatedResult = scopedTester.stripDefaultFilter()
+                    .select { scopedTester.id eq scopedId1 }
+                    .single()
+                assertEquals(scopedUpdatedAge, scopedUpdatedResult[scopedTester.age])
+
+                var scopedUnchangedResult = scopedTester.stripDefaultFilter()
+                    .select { scopedTester.id eq scopedUnchanged[scopedTester.id] }
+                    .single()
+                assertEquals(scopedUnchanged[scopedTester.address], scopedUnchangedResult[scopedTester.address])
+
+                var scopedUnchangedResult2 = scopedTester.stripDefaultFilter()
+                    .select { scopedTester.id eq scopedUnchanged2[scopedTester.id] }
+                    .single()
+                assertEquals(scopedUnchanged2[scopedTester.address], scopedUnchangedResult2[scopedTester.address])
+
+                // Now updates C
+                scopedTester.stripDefaultFilter().upsert(scopedTester.name, where = { scopedAgeTooLow }) {
+                    it[scopedTester.tenantId] = 3
+                    it[scopedTester.name] = "C"
+                    it[scopedTester.address] = "Address C"
+                    it[scopedTester.age] = 25
+                }
+
+                scopedUnchangedResult2 = scopedTester.stripDefaultFilter()
+                    .select { scopedTester.id eq scopedUnchanged2[scopedTester.id] }
+                    .single()
+                assertEquals("Address C", scopedUnchangedResult2[scopedTester.address])
+                assertEquals(25, scopedUnchangedResult2[scopedTester.age])
+            }
         }
     }
 
@@ -493,6 +620,15 @@ class UpsertTests : DatabaseTestsBase() {
         val name = varchar("name", 64)
 
         override val primaryKey = PrimaryKey(id)
+    }
+
+    private object ScopedAutoIncTable : Table("scoped_auto_inc_table") {
+        val id = integer("id").autoIncrement()
+        val tenantId = integer("tid")
+        val name = varchar("name", 64)
+
+        override val primaryKey = PrimaryKey(id)
+        override val defaultFilter = { tenantId eq 1 }
     }
 
     private object Words : Table("words") {

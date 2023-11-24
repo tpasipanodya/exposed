@@ -262,15 +262,7 @@ internal object PostgreSQLFunctionProvider : FunctionProvider() {
             +" DO"
             appendUpdateToUpsertClause(table, updateColumns, onUpdate, transaction, isAliasNeeded = false)
 
-            where?.let { originalClause ->
-                table.materializeDefaultFilter()?.let { defaultFilter ->
-                    originalClause and defaultFilter
-
-                } ?: originalClause
-            }?.let {
-                +" WHERE "
-                +it
-            }
+            where?.let { +" WHERE $where" }
             toString()
         }
     }
