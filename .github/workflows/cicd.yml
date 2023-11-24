@@ -22,7 +22,7 @@ jobs:
         run: docker context use default
 
       - name: Release
-        uses: gradle/gradle-build-action@v2
+        uses: gradle/gradle-build-action@v2.4.2
         env:
           PACKAGE_STORE_USERNAME: ${{ secrets.PACKAGE_STORE_USERNAME }}
           PACKAGE_STORE_TOKEN: ${{ secrets.PACKAGE_STORE_TOKEN }}
