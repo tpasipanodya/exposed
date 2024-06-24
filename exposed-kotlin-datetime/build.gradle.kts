@@ -16,7 +16,7 @@ kotlin {
 
 dependencies {
     api(project(":exposed-core"))
-    api("org.jetbrains.kotlinx:kotlinx-datetime:0.4.1")
+    api("org.jetbrains.kotlinx:kotlinx-datetime:0.5.0")
     testImplementation(project(":exposed-dao"))
     testImplementation(project(":exposed-tests"))
     testImplementation(project(":exposed-json"))
