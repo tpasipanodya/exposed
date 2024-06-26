@@ -21,7 +21,7 @@ pluginManagement {
 }
 
 plugins {
-    id("org.gradle.toolchains.foojay-resolver") version "0.7.0"
+    id("org.gradle.toolchains.foojay-resolver") version "0.8.0"
 }
 
 toolchainManagement {
