@@ -6,7 +6,7 @@ import org.jetbrains.exposed.gradle.Versions
 
 plugins {
     kotlin("jvm") apply true
-    id("org.jetbrains.dokka") version "1.9.10"
+    id("org.jetbrains.dokka") version "1.9.20"
     id("com.avast.gradle.docker-compose")
     id("maven-publish")
     id ("java")
